@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
-import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/struct/featureGates.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/colorPicker.dart';

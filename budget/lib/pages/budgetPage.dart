@@ -6,7 +6,7 @@ import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editBudgetLimitsPage.dart';
 import 'package:budget/pages/homePage/homePageLineGraph.dart';
 import 'package:budget/pages/pastBudgetsPage.dart';
-import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/struct/featureGates.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';

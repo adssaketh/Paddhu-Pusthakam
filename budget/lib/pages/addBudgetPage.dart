@@ -4,7 +4,7 @@ import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/pages/editBudgetLimitsPage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
-import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/struct/featureGates.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/sharedBudgetSettings.dart';
 import 'package:budget/struct/currencyFunctions.dart';

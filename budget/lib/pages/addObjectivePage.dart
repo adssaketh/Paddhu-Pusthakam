@@ -4,7 +4,7 @@ import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editObjectivesPage.dart';
 import 'package:budget/pages/objectivesListPage.dart';
-import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/struct/featureGates.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';

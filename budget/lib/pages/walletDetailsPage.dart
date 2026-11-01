@@ -7,7 +7,7 @@ import 'package:budget/pages/creditDebtTransactionsPage.dart';
 import 'package:budget/pages/homePage/homePageLineGraph.dart';
 import 'package:budget/pages/homePage/homePageNetWorth.dart';
 import 'package:budget/pages/pastBudgetsPage.dart';
-import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/struct/featureGates.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/pages/transactionsSearchPage.dart';
 import 'package:budget/pages/upcomingOverdueTransactionsPage.dart';

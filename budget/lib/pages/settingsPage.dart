@@ -9,7 +9,7 @@ import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/editObjectivesPage.dart';
 import 'package:budget/pages/homePage/homePageNetWorth.dart';
 import 'package:budget/pages/objectivesListPage.dart';
-import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/struct/featureGates.dart';
 import 'package:budget/pages/transactionsListPage.dart';
 import 'package:budget/pages/upcomingOverdueTransactionsPage.dart';
 import 'package:budget/struct/currencyFunctions.dart';
@@ -114,10 +114,6 @@ class MoreActionsPageState extends State<MoreActionsPage> {
           ),
         ],
         listWidgets: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(bottom: 8.0),
-            child: PremiumBanner(),
-          ),
           MorePages()
         ],
       );

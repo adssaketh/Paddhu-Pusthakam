@@ -7,7 +7,7 @@ import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/pages/editAssociatedTitlesPage.dart';
 import 'package:budget/pages/editWalletsPage.dart';
-import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/struct/featureGates.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/sharedBudgetSettings.dart';
 import 'package:budget/pages/transactionsListPage.dart';
