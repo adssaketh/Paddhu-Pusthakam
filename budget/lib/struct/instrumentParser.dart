@@ -358,6 +358,16 @@ String? instrumentLabel(String key) {
   return '$name$tag \u2022\u2022$last';
 }
 
+/// Issuer part of an instrument key as shown to people: "idfcfb:account:2352" -> "IDFC First".
+String issuerLabelOf(String key) {
+  final issuer = key.split(':').first;
+  return _issuerLabel[issuer] ?? issuer.toUpperCase();
+}
+
+/// Like issuerLabelOf, but null when the issuer is not one of the banks and wallets listed here
+/// (sender codes such as "cptnishq" or "epfoho" have no proper name).
+String? knownIssuerLabelOf(String key) => _issuerLabel[key.split(':').first];
+
 /// Accounts that no longer exist (the two Federal Bank accounts). Their old messages stay, marked
 /// "closed".
 bool isClosedInstrument(String key) =>

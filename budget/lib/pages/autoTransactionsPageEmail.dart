@@ -5,6 +5,7 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/pages/addEmailTemplate.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
+import 'package:budget/pages/importFromPingPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/smartSmsTransactions.dart';
@@ -246,6 +247,17 @@ class _AutoTransactionsPageNotificationsState
           description:
               "When a bank SMS notification matches no template, read the amount, merchant and account from it and open a prefilled transaction. Needs Notification Transactions turned on.",
           initialValue: appStateSettings["notificationSmartParse"] == true,
+        ),
+        Padding(
+          padding:
+              const EdgeInsetsDirectional.symmetric(horizontal: 15, vertical: 8),
+          child: Button(
+            label: "Import SMS from Ping (choose a file)",
+            expandedLayout: true,
+            onTap: () {
+              pushRoute(context, ImportFromPingPage(pickFile: true));
+            },
+          ),
         ),
         StreamBuilder<List<ScannerTemplate>>(
           stream: database.watchAllScannerTemplates(),

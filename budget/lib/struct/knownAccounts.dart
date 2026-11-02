@@ -1,57 +1,69 @@
-// Your names for the accounts, cards and schemes that instrumentParser.dart detects.
+// Your names for the accounts, cards and schemes that instrumentParser.dart detects, and the Paddhu
+// wallet each one is imported into (one wallet per bank, cards combined).
 // Keys are "issuer:kind:last digits", as produced by instrumentKey().
-// The same list lives in Ping (src/utils/instrument.ts, KNOWN_ACCOUNTS): change both together.
+// The names are the same list as in Ping (src/utils/instrument.ts, KNOWN_ACCOUNTS): change both together.
 
 class KnownAccount {
-  const KnownAccount(this.name, {this.closed = false});
+  const KnownAccount(
+    this.name, {
+    this.closed = false,
+    this.wallet = '',
+    this.tickByDefault = true,
+  });
 
   final String name;
   final bool closed;
+
+  /// Paddhu wallet the transactions of this account go into when imported from Ping.
+  final String wallet;
+
+  /// false for pension / provident fund schemes: shown in the import list but not ticked.
+  final bool tickByDefault;
 }
 
 const Map<String, KnownAccount> kKnownAccounts = {
-  'axis:account:6372': KnownAccount('Saketh - Axis Savings Bank Account'),
-  'sbi:account:1327': KnownAccount('Saketh - SBI Savings Bank Account'),
-  'axis:credit_card:4498': KnownAccount('Saketh - Axis Bank Privilege Credit Card'),
-  'icici:credit_card:1000': KnownAccount('Saketh - ICICI Amazon Pay Credit Card'),
-  'sbi_card:credit_card:3764': KnownAccount('Saketh - SBI IRCTC Platinum Credit Card'),
-  'yes:credit_card:3689': KnownAccount('Saketh - Kiwi Yes Bank Credit Card'),
-  'yes:credit_card:': KnownAccount('Saketh - Kiwi Yes Bank Credit Card'),
-  'hdfc:credit_card:0886': KnownAccount('Saketh - HDFC Indian Oil Credit Card'),
-  'scapia:credit_card:visa': KnownAccount('Saketh - Federal Bank Scapia Visa Credit Card'),
-  'scapia:credit_card:rupay': KnownAccount('Federal Bank Scapia Rupay Credit Card (Saketh add-on or Mansa add-on)'),
-  'scapia:credit_card:': KnownAccount('Federal Bank Scapia Credit Card (Saketh Visa or Rupay, or Mansa add-on)'),
-  'federal:credit_card:1736': KnownAccount('Saketh - Federal Bank Scapia Visa Credit Card'),
-  'federal:credit_card:4278': KnownAccount('Saketh - Federal Bank Scapia Rupay Credit Card (add-on)'),
-  'bajaj:credit_card:0688': KnownAccount('Saketh - Bajaj Finserv EMI Card'),
-  'kfncra:account:0840': KnownAccount('Saketh - National Pension Scheme (NPS) Tier 1'),
-  'ptnnps:account:7819': KnownAccount('Saketh - Atal Pension Yojana (APY)'),
-  'epfoho:account:4895': KnownAccount('Saketh - Employee Provident Fund (EPF)'),
-  'sbi:account:6919': KnownAccount('Mansa - SBI Savings Bank Account'),
-  'federal:account:7855': KnownAccount('Mansa - Federal Bank (Jupiter) Savings Account'),
-  'dopbnk:account:7718': KnownAccount('Mansa - India Post Payments Bank Savings Account (APY)'),
-  'ipbmsg:account:7716': KnownAccount('Mansa - India Post Payments Bank Digital Savings Account (PLI)'),
-  'icici:credit_card:5002': KnownAccount('Mansa - ICICI Coral Rupay Credit Card'),
-  'federal:credit_card:3777': KnownAccount('Mansa - Federal Bank Scapia Rupay Credit Card (add-on)'),
-  'ptnnps:account:0727': KnownAccount('Mansa - Atal Pension Yojana (APY)'),
-  'epfoho:account:4774': KnownAccount('Mansa - Employee Provident Fund (EPF)'),
-  'icici:account:2090': KnownAccount('Saketh - ICICI Savings Account', closed: true),
-  'au:account:1858': KnownAccount('Saketh - AU Small Finance Bank Savings Account', closed: true),
-  'au:account:7280': KnownAccount('FD Account', closed: true),
-  'federal:account:3269': KnownAccount('Federal Bank Account', closed: true),
-  'federal:account:4365': KnownAccount('Federal Bank Account', closed: true),
-  'federal:account:6299': KnownAccount('Federal Bank Account', closed: true),
-  'icici:credit_card:8006': KnownAccount('ICICI Coral Rupay Credit Card', closed: true),
-  'federal:credit_card:9368': KnownAccount('Federal Signet Rupay Card', closed: true),
-  'hdfc:credit_card:1170': KnownAccount('HDFC Swiggy Credit Card', closed: true),
-  'axis:credit_card:1896': KnownAccount('Axis Indian Oil Credit Card', closed: true),
-  'axis:credit_card:2099': KnownAccount('Axis Myzone Credit Card', closed: true),
-  'idfcfb:credit_card:0932': KnownAccount('IDFC First Bank Millennia Credit Card', closed: true),
-  'sbi_card:credit_card:3367': KnownAccount('SBI Credit Card', closed: true),
-  'sbi_card:credit_card:6511': KnownAccount('SBI Credit Card', closed: true),
-  'sbi_card:credit_card:3054': KnownAccount('SBI Credit Card', closed: true),
-  'sbi:debit_card:3811': KnownAccount('Mansa - SBI Debit Card', closed: true),
-  'sbi:debit_card:2617': KnownAccount('Mansa - SBI Debit Card'),
+  'axis:account:6372': KnownAccount('Saketh - Axis Savings Bank Account', wallet: 'Saketh - Axis'),
+  'sbi:account:1327': KnownAccount('Saketh - SBI Savings Bank Account', wallet: 'Saketh - SBI'),
+  'axis:credit_card:4498': KnownAccount('Saketh - Axis Bank Privilege Credit Card', wallet: 'Saketh - Axis'),
+  'icici:credit_card:1000': KnownAccount('Saketh - ICICI Amazon Pay Credit Card', wallet: 'Saketh - ICICI'),
+  'sbi_card:credit_card:3764': KnownAccount('Saketh - SBI IRCTC Platinum Credit Card', wallet: 'Saketh - SBI'),
+  'yes:credit_card:3689': KnownAccount('Saketh - Kiwi Yes Bank Credit Card', wallet: 'Saketh - Yes Bank'),
+  'yes:credit_card:': KnownAccount('Saketh - Kiwi Yes Bank Credit Card', wallet: 'Saketh - Yes Bank'),
+  'hdfc:credit_card:0886': KnownAccount('Saketh - HDFC Indian Oil Credit Card', wallet: 'Saketh - HDFC'),
+  'scapia:credit_card:visa': KnownAccount('Saketh - Federal Bank Scapia Visa Credit Card', wallet: 'Saketh - Federal'),
+  'scapia:credit_card:rupay': KnownAccount('Federal Bank Scapia Rupay Credit Card (Saketh add-on or Mansa add-on)', wallet: 'Saketh - Federal'),
+  'scapia:credit_card:': KnownAccount('Federal Bank Scapia Credit Card (Saketh Visa or Rupay, or Mansa add-on)', wallet: 'Saketh - Federal'),
+  'federal:credit_card:1736': KnownAccount('Saketh - Federal Bank Scapia Visa Credit Card', wallet: 'Saketh - Federal'),
+  'federal:credit_card:4278': KnownAccount('Saketh - Federal Bank Scapia Rupay Credit Card (add-on)', wallet: 'Saketh - Federal'),
+  'bajaj:credit_card:0688': KnownAccount('Saketh - Bajaj Finserv EMI Card', wallet: 'Saketh - Bajaj Finserv'),
+  'kfncra:account:0840': KnownAccount('Saketh - National Pension Scheme (NPS) Tier 1', wallet: 'Saketh - Pension & PF', tickByDefault: false),
+  'ptnnps:account:7819': KnownAccount('Saketh - Atal Pension Yojana (APY)', wallet: 'Saketh - Pension & PF', tickByDefault: false),
+  'epfoho:account:4895': KnownAccount('Saketh - Employee Provident Fund (EPF)', wallet: 'Saketh - Pension & PF', tickByDefault: false),
+  'sbi:account:6919': KnownAccount('Mansa - SBI Savings Bank Account', wallet: 'Mansa - SBI'),
+  'federal:account:7855': KnownAccount('Mansa - Federal Bank (Jupiter) Savings Account', wallet: 'Mansa - Federal'),
+  'dopbnk:account:7718': KnownAccount('Mansa - India Post Payments Bank Savings Account (APY)', wallet: 'Mansa - India Post'),
+  'ipbmsg:account:7716': KnownAccount('Mansa - India Post Payments Bank Digital Savings Account (PLI)', wallet: 'Mansa - India Post'),
+  'icici:credit_card:5002': KnownAccount('Mansa - ICICI Coral Rupay Credit Card', wallet: 'Mansa - ICICI'),
+  'federal:credit_card:3777': KnownAccount('Mansa - Federal Bank Scapia Rupay Credit Card (add-on)', wallet: 'Mansa - Federal'),
+  'ptnnps:account:0727': KnownAccount('Mansa - Atal Pension Yojana (APY)', wallet: 'Mansa - Pension & PF', tickByDefault: false),
+  'epfoho:account:4774': KnownAccount('Mansa - Employee Provident Fund (EPF)', wallet: 'Mansa - Pension & PF', tickByDefault: false),
+  'icici:account:2090': KnownAccount('Saketh - ICICI Savings Account', wallet: 'Saketh - ICICI', closed: true),
+  'au:account:1858': KnownAccount('Saketh - AU Small Finance Bank Savings Account', wallet: 'Saketh - AU', closed: true),
+  'au:account:7280': KnownAccount('FD Account', wallet: 'Saketh - AU', closed: true),
+  'federal:account:3269': KnownAccount('Federal Bank Account', wallet: 'Federal (closed)', closed: true),
+  'federal:account:4365': KnownAccount('Federal Bank Account', wallet: 'Federal (closed)', closed: true),
+  'federal:account:6299': KnownAccount('Federal Bank Account', wallet: 'Federal (closed)', closed: true),
+  'icici:credit_card:8006': KnownAccount('ICICI Coral Rupay Credit Card', wallet: 'ICICI (closed)', closed: true),
+  'federal:credit_card:9368': KnownAccount('Federal Signet Rupay Card', wallet: 'Federal (closed)', closed: true),
+  'hdfc:credit_card:1170': KnownAccount('HDFC Swiggy Credit Card', wallet: 'Saketh - HDFC', closed: true),
+  'axis:credit_card:1896': KnownAccount('Axis Indian Oil Credit Card', wallet: 'Saketh - Axis', closed: true),
+  'axis:credit_card:2099': KnownAccount('Axis Myzone Credit Card', wallet: 'Saketh - Axis', closed: true),
+  'idfcfb:credit_card:0932': KnownAccount('IDFC First Bank Millennia Credit Card', wallet: 'IDFC First (closed)', closed: true),
+  'sbi_card:credit_card:3367': KnownAccount('SBI Credit Card', wallet: 'SBI Card (closed)', closed: true),
+  'sbi_card:credit_card:6511': KnownAccount('SBI Credit Card', wallet: 'SBI Card (closed)', closed: true),
+  'sbi_card:credit_card:3054': KnownAccount('SBI Credit Card', wallet: 'SBI Card (closed)', closed: true),
+  'sbi:debit_card:3811': KnownAccount('Mansa - SBI Debit Card', wallet: 'Mansa - SBI', closed: true),
+  'sbi:debit_card:2617': KnownAccount('Mansa - SBI Debit Card', wallet: 'Mansa - SBI'),
 };
 
 /// Looks up the name for an instrument key. An exact key wins. Otherwise it matches on the ending

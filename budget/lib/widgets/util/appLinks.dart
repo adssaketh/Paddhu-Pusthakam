@@ -5,6 +5,7 @@ import 'package:budget/functions.dart';
 import 'package:budget/pages/addEmailTemplate.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/autoTransactionsPageEmail.dart';
+import 'package:budget/pages/importFromPingPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/throttler.dart';
@@ -314,6 +315,12 @@ Future executeAppLink(BuildContext? context, Uri uri,
           dynamic res = await processAddTransactionFromParams(context, params);
           if (onDebug != null) onDebug(res);
         }
+      }
+      break;
+    case "importFromPing":
+      // Opened by ShareReceiverActivity after Ping shares its SMS file
+      if (context != null) {
+        pushRoute(context, ImportFromPingPage());
       }
       break;
     case "addTransactionRoute":
