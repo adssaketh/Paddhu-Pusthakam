@@ -11,24 +11,62 @@ import 'package:budget/widgets/openPopup.dart';
 /// or dismissed) does not open the Add Transaction page twice.
 final List<String> _handledSmsKeys = [];
 
-/// Called with a notification's title (the SMS sender) and content (the SMS text) when no scanner
-/// template matched. Opens the Add Transaction page prefilled with the amount, direction, title and
-/// a suggested category. Nothing is saved until you press save, same as template notifications.
+/// Apps that show your SMS. A notification from one of them is treated as an SMS even when its title is a
+/// brand name ("Axis Bank") and not a sender ID ("AX-AXISBK-S").
+const Set<String> kSmsAppPackages = {
+  'com.google.android.apps.messaging', // Google Messages
+  'com.samsung.android.messaging', // Samsung Messages
+  'com.android.mms', // AOSP / many phones
+  'com.oneplus.mms', // OnePlus
+  'com.coloros.mms', // Oppo / Realme
+  'com.vivo.mms', // Vivo
+  'com.miui.mms', // Xiaomi
+  'com.microsoft.android.smsorganizer',
+  'com.truecaller',
+  'com.ping.sms', // Ping
+};
+
+/// Called with a notification's title (the SMS sender), content (the SMS text) and the app that posted
+/// it, when no scanner template matched. Opens the Add Transaction page prefilled with the amount,
+/// direction, title and a suggested category. Nothing is saved until you press save, same as template
+/// notifications.
 ///
-/// Returns true when a page was opened.
-Future<bool> queueTransactionFromSmartParse(String? sender, String? body) async {
-  if (appStateSettings["notificationSmartParse"] != true) return false;
-  if (sender == null || body == null) return false;
-  if (!looksLikeSenderId(sender)) return false;
+/// Returns a short sentence saying what it did and why, which the Auto Transactions page shows under
+/// each captured notification.
+Future<String> queueTransactionFromSmartParse(String? sender, String? body,
+    {String? packageName}) async {
+  if (appStateSettings["notificationSmartParse"] != true) {
+    return 'skipped: the Smart bank SMS parsing switch is off';
+  }
+  if (sender == null || sender.trim().isEmpty || sender == 'null') {
+    return 'skipped: the notification has no title (sender)';
+  }
+  if (body == null || body.trim().isEmpty || body == 'null') {
+    return 'skipped: the notification has no text';
+  }
 
   final ParsedSmsTransaction? parsed = parseSmsTransaction(sender, body);
-  if (parsed == null) return false;
+  if (parsed == null) {
+    return 'skipped: not a completed payment (an OTP, reminder, request, promotion or chat)';
+  }
   // The matching bank debit is its own SMS, adding this one too would count the bill twice.
-  if (parsed.cardPayment) return false;
-  if (parsed.amount <= 0) return false;
+  if (parsed.cardPayment) {
+    return 'skipped: a credit card bill acknowledgement (the bank debit is a separate SMS)';
+  }
+  if (parsed.amount <= 0) return 'skipped: no amount found';
+
+  // Only real SMS: a sender ID, a known messages app, or an SMS that names an account / card.
+  final bool fromSmsApp = packageName != null && kSmsAppPackages.contains(packageName);
+  final bool senderIdLike = looksLikeSenderId(sender);
+  final bool namesAnAccount = parsed.instrumentKey.split(':').last.isNotEmpty;
+  if (!fromSmsApp && !senderIdLike && !namesAnAccount) {
+    return 'skipped: "$sender" from $packageName does not look like an SMS from a bank';
+  }
 
   final String dedupeKey = '$sender|$body';
-  if (_handledSmsKeys.contains(dedupeKey)) return false;
+  if (_handledSmsKeys.contains(dedupeKey)) {
+    return 'skipped: this notification was already handled';
+  }
   _handledSmsKeys.insert(0, dedupeKey);
   if (_handledSmsKeys.length > 50) _handledSmsKeys.removeLast();
 
@@ -72,5 +110,5 @@ Future<bool> queueTransactionFromSmartParse(String? sender, String? body) async 
       startInitialAddTransactionSequence: false,
     ),
   );
-  return true;
+  return 'opened the Add Transaction page (${parsed.isExpense ? 'debit' : 'credit'} of ${parsed.amount})';
 }

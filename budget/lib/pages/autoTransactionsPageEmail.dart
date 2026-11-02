@@ -65,7 +65,15 @@ onNotification(ServiceNotificationEvent event) async {
   final dynamic templateResult = await queueTransactionFromMessage(messageString);
   // No template matched: try reading the bank SMS directly (off unless turned on in the settings).
   if (templateResult == false && event.hasRemoved != true) {
-    await queueTransactionFromSmartParse(event.title, event.content);
+    final String reason = await queueTransactionFromSmartParse(
+        event.title, event.content,
+        packageName: event.packageName);
+    // Show what happened under the captured notification on this page, so a miss can be explained.
+    final int index = recentCapturedNotifications.indexOf(messageString);
+    if (index >= 0) {
+      recentCapturedNotifications[index] =
+          messageString + "\n\n[Smart parse: " + reason + "]";
+    }
   }
 }
 
@@ -248,6 +256,28 @@ class _AutoTransactionsPageNotificationsState
               "When a bank SMS notification matches no template, read the amount, merchant and account from it and open a prefilled transaction. Needs Notification Transactions turned on.",
           initialValue: appStateSettings["notificationSmartParse"] == true,
         ),
+        Padding(
+          padding:
+              const EdgeInsetsDirectional.symmetric(horizontal: 20, vertical: 10),
+          child: TextFont(
+            text: recentCapturedNotifications.isEmpty
+                ? "No notifications received since the app started. Keep Paddhu Pusthakam open, wait for an SMS, then tap the refresh button at the top."
+                : "Recent notifications received (tap the refresh button at the top to update):",
+            fontSize: 14,
+            maxLines: 6,
+          ),
+        ),
+        for (final String capturedNotification
+            in recentCapturedNotifications.take(10))
+          Padding(
+            padding:
+                const EdgeInsetsDirectional.symmetric(horizontal: 20, vertical: 6),
+            child: TextFont(
+              text: capturedNotification,
+              fontSize: 12,
+              maxLines: 14,
+            ),
+          ),
         Padding(
           padding:
               const EdgeInsetsDirectional.symmetric(horizontal: 15, vertical: 8),
