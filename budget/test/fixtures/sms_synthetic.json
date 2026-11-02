@@ -200,6 +200,76 @@
    "sender": "AD-HELLO",
    "text": "Hello, see you tomorrow at 5",
    "expected": null
+  },
+  {
+   "id": "s17",
+   "sender": "VM-FEDSCP-S",
+   "text": "Your txn of ₹291.07 at Zepto on your Scapia Federal Visa credit card earned you 10% rewards! Not you? Call 18002961199. - Federal Bank",
+   "expected": {
+    "amount": 291.07,
+    "isExpense": true,
+    "merchant": "Zepto",
+    "cardPayment": false,
+    "category": "groceries",
+    "title": "Zepto",
+    "instrumentKey": "scapia:credit_card:visa"
+   }
+  },
+  {
+   "id": "s18",
+   "sender": "AX-IDFCFB-S",
+   "text": "Your A/c XX9999 debited by Rs. 410.00 on 27/10/26; SOME PERSON credited. RRN 871531470847. Available balance Rs. 0.00. Team IDFC FIRST Bank",
+   "expected": {
+    "amount": 410.0,
+    "isExpense": true,
+    "merchant": "SOME PERSON",
+    "cardPayment": false,
+    "category": "",
+    "title": "Some Person",
+    "instrumentKey": "idfcfb:account:9999"
+   }
+  },
+  {
+   "id": "s19",
+   "sender": "AX-SBICRD-S",
+   "text": "Rs.1,410.00 spent on your Add-on SBI Credit Card XX0777 at RELIANCEJIOINFOM on 31-07-26 via UPI (Ref No. 941080656649). Trxn. not done by you? Report at https://sbicard.com",
+   "expected": {
+    "amount": 1410.0,
+    "isExpense": true,
+    "merchant": "RELIANCEJIOINFOM",
+    "cardPayment": false,
+    "category": "bills_fees",
+    "title": "Reliancejioinfom",
+    "instrumentKey": "sbi_card:credit_card:0777"
+   }
+  },
+  {
+   "id": "s20",
+   "sender": "VM-FEDSCP-S",
+   "text": "Yay! We've received your payment of ₹185.00 towards your Scapia Federal credit card. -Federal Bank",
+   "expected": {
+    "amount": 185.0,
+    "isExpense": true,
+    "merchant": "",
+    "cardPayment": true,
+    "category": "",
+    "title": "Card bill payment",
+    "instrumentKey": "scapia:credit_card:"
+   }
+  },
+  {
+   "id": "s21",
+   "sender": "TX-FEDSCP-S",
+   "text": "Hi! You have received a refund of ₹563.00 on your Scapia Federal RuPay Credit Card from Zepto and we have reversed rewards earned on this transaction.",
+   "expected": {
+    "amount": 563.0,
+    "isExpense": false,
+    "merchant": "Zepto",
+    "cardPayment": false,
+    "category": "",
+    "title": "Zepto",
+    "instrumentKey": "scapia:credit_card:rupay"
+   }
   }
  ]
 }

@@ -6,7 +6,7 @@ import re
 NOT_TXN = re.compile(r"requested money|will be debited|is due|due on|not completed|if debited|passbook|has been initiated|e-mandate|mandate|\botp\b|one.?time password|verification code|balance enquiry|statement|total amt due|min amt due", re.I)
 AMT_RE = re.compile(r"(?:rs\.?|inr|\u20b9)\s*(\d[\d,]*(?:\.\d+)?)", re.I)
 AMT_BY_RE = re.compile(r"(?:debited|credited)\s+(?:by|for|with)\s+(\d[\d,]*(?:\.\d+)?)", re.I)
-DEBIT_RE = re.compile(r"\bdebit(?:ed)?\b(?! card)|spent|\bpaid\b|withdrawn|\bsent\b|purchase|payment of|transaction number \d+ for", re.I)
+DEBIT_RE = re.compile(r"\bdebit(?:ed)?\b(?! card)|spent|\bpaid\b|withdrawn|\bsent\b|purchase|payment of|\btxn of\b|transaction number \d+ for", re.I)
 CREDIT_RE = re.compile(r"credited|received|refund|deposited", re.I)
 CARD_BILL_RE = re.compile(r"payment of .{0,24}(?:has been|is) received (?:on|towards) your .{0,60}credit card|credit ?card payment|payment .{0,30}towards your .{0,40}credit card|thank you for payment .{0,40}credit card", re.I)
 DEBIT_THEN_CREDIT_RE = re.compile(r";\s*.+? credited\.", re.I)
@@ -17,7 +17,7 @@ M_SBI = re.compile(r"(?:transfer|trf)\s+to\s+(.+?)\s+Ref\s?no", re.I)
 M_FROM = re.compile(r"\bfrom\s+([A-Za-z][A-Za-z .&']+?)\.\s*UPI", re.I)
 M_ICICI_ON = re.compile(r"\bon \d{1,2}-[A-Za-z]{3}-\d{2,4} on (.+?)\s*(?:-\s*)?\.", re.I)
 M_AT_SIGN = re.compile(r"@\s*([A-Za-z0-9 .*&\-]+?)\s+\d{2}-\d{2}-\d{2,4}", re.I)
-M_AT = re.compile(r"\bat\s+(.+?)(?:\s+on\s+\d|\s*\.\s+(?:Avl|Available))", re.I)
+M_AT = re.compile(r"\bat\s+(.+?)(?:\s+on\s+\d|\s+on your\b|\s*\.\s+(?:Avl|Available))", re.I)
 M_ICICI_SEMI = re.compile(r";\s*(.+?)\s+credited\.", re.I)
 M_UPI_DASH = re.compile(r"UPI-\d+-([A-Za-z0-9 .&]+?)(?:\.|\s*To dispute|$)", re.I)
 M_USING = re.compile(r"using\s+([A-Za-z ]+?)\s+is successful", re.I)
@@ -38,7 +38,7 @@ CATEGORY_RULES = [
     ('travel',        re.compile(r"irctc|redbus|abhibus|makemytrip|goibibo|cleartrip|yatra|indigo|air ?india|vistara|akasa|oyo\b|lodge|resort|airbnb|trainman|ixigo", re.I)),
     ('transit',       re.compile(r"\buber\b|\bola\b|rapido|metro|fuel|petrol|diesel|hpcl|bpcl|iocl|fastag|tsrtc|apsrtc|parking|\btoll\b|namma yatri", re.I)),
     ('entertainment', re.compile(r"netflix|hotstar|spotify|prime video|bookmyshow|\bpvr\b|\binox\b|youtube|jiocinema|sonyliv|zee5|steam|playstation|play ?store|google play|cinema|movie", re.I)),
-    ('bills_fees',    re.compile(r"\bjio\b|airtel|vodafone|\bvi\b|bsnl|tata ?sky|tata ?play|\bdth\b|electric|bescom|tsspdcl|tgspdcl|apspdcl|water board|broadband|fibernet|insurance|\blic\b|premium|\bemi\b|\bfees?\b|charges|bil\*|billdesk|\bbill\b|recharge|\bloan\b|\brent\b", re.I)),
+    ('bills_fees',    re.compile(r"\bjio\b|jioinfo|airtel|vodafone|\bvi\b|bsnl|tata ?sky|tata ?play|\bdth\b|electric|bescom|tsspdcl|tgspdcl|apspdcl|water board|broadband|fibernet|insurance|\blic\b|premium|\bemi\b|\bfees?\b|charges|bil\*|billdesk|\bbill\b|recharge|\bloan\b|\brent\b", re.I)),
     ('beauty',        re.compile(r"nykaa|salon|parlou?r|\bspa\b|beauty|cosmetic|barber|grooming|lakme|urban company", re.I)),
     ('gifts',         re.compile(r"\bgifts?\b|florist|flowers|archies", re.I)),
     ('work',          re.compile(r"github|\baws\b|amazon web|google cloud|digitalocean|notion|linkedin|openai|anthropic|godaddy|hosting|coworking|\bzoom\b", re.I)),

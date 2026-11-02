@@ -82,7 +82,7 @@ final RegExp _amtByRe = RegExp(
     r"(?:debited|credited)\s+(?:by|for|with)\s+(\d[\d,]*(?:\.\d+)?)",
     caseSensitive: false);
 final RegExp _debitRe = RegExp(
-    r"\bdebit(?:ed)?\b(?! card)|spent|\bpaid\b|withdrawn|\bsent\b|purchase|payment of|transaction number \d+ for",
+    r"\bdebit(?:ed)?\b(?! card)|spent|\bpaid\b|withdrawn|\bsent\b|purchase|payment of|\btxn of\b|transaction number \d+ for",
     caseSensitive: false);
 final RegExp _creditRe =
     RegExp(r"credited|received|refund|deposited", caseSensitive: false);
@@ -106,7 +106,7 @@ final RegExp _mAtSign = RegExp(
     r"@\s*([A-Za-z0-9 .*&\-]+?)\s+\d{2}-\d{2}-\d{2,4}",
     caseSensitive: false);
 final RegExp _mAt = RegExp(
-    r"\bat\s+(.+?)(?:\s+on\s+\d|\s*\.\s+(?:Avl|Available))",
+    r"\bat\s+(.+?)(?:\s+on\s+\d|\s+on your\b|\s*\.\s+(?:Avl|Available))",
     caseSensitive: false);
 final RegExp _mIciciSemi =
     RegExp(r";\s*(.+?)\s+credited\.", caseSensitive: false);
@@ -166,7 +166,7 @@ final List<MapEntry<String, RegExp>> _categoryRules = [
   MapEntry(
       'bills_fees',
       RegExp(
-          r"\bjio\b|airtel|vodafone|\bvi\b|bsnl|tata ?sky|tata ?play|\bdth\b|electric|bescom|tsspdcl|tgspdcl|apspdcl|water board|broadband|fibernet|insurance|\blic\b|premium|\bemi\b|\bfees?\b|charges|bil\*|billdesk|\bbill\b|recharge|\bloan\b|\brent\b",
+          r"\bjio\b|jioinfo|airtel|vodafone|\bvi\b|bsnl|tata ?sky|tata ?play|\bdth\b|electric|bescom|tsspdcl|tgspdcl|apspdcl|water board|broadband|fibernet|insurance|\blic\b|premium|\bemi\b|\bfees?\b|charges|bil\*|billdesk|\bbill\b|recharge|\bloan\b|\brent\b",
           caseSensitive: false)),
   MapEntry(
       'beauty',

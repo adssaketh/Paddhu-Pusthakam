@@ -68,6 +68,7 @@ final List<MapEntry<RegExp, String>> _issuerBySender = [
   MapEntry(RegExp(r'^AXIS'), 'axis'),
   MapEntry(RegExp(r'^(FEDBNK|FEDERL|FEDRAL)$'), 'federal'),
   MapEntry(RegExp(r'^HDFC'), 'hdfc'),
+  MapEntry(RegExp(r'^IDFCFB'), 'idfcfb'),
   MapEntry(RegExp(r'^AUBANK$'), 'au'),
   MapEntry(RegExp(r'^YESBNK$'), 'yes'),
   MapEntry(RegExp(r'^(JIOPAY|JIOINF|JIOFIN)$'), 'jiopay'),
@@ -164,9 +165,27 @@ String _lastN(String s, int n) => s.length > n ? s.substring(s.length - n) : s;
 // Parsing one SMS
 // ---------------------------------------------------------------------------------------------
 
+final RegExp _scapiaSenderRe = RegExp(r'^FEDSCP');
+final RegExp _scapiaRe = RegExp(r'\bscapia\b', caseSensitive: false);
+final RegExp _visaRe = RegExp(r'\bvisa\b', caseSensitive: false);
+final RegExp _rupayRe = RegExp(r'\brupay\b', caseSensitive: false);
+
 InstrumentRef parseInstrument(String sender, String body) {
   final issuer = _issuerOf(sender, body);
   final text = body;
+
+  // Scapia (Federal Bank) SMS never print the card digits, the card network is the only clue.
+  if (_scapiaSenderRe.hasMatch(_senderName(sender)) || _scapiaRe.hasMatch(text)) {
+    return InstrumentRef(
+      issuer: 'scapia',
+      kind: InstrumentKind.creditCard,
+      last: _visaRe.hasMatch(text)
+          ? 'visa'
+          : _rupayRe.hasMatch(text)
+              ? 'rupay'
+              : '',
+    );
+  }
 
   final isCredit = _creditRe.hasMatch(text) || issuer == 'sbi_card';
   final isDebit = _debitRe.hasMatch(text);
@@ -310,6 +329,7 @@ const Map<String, String> _issuerLabel = {
   'yes': 'Yes Bank',
   'idfc': 'IDFC First',
   'idfcfb': 'IDFC First',
+  'scapia': 'Scapia',
   'jiopay': 'Jio Pay',
   'zepto': 'Zepto',
   'zepto_cash': 'Zepto Cash',
