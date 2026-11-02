@@ -7,6 +7,7 @@ import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/struct/smartSmsTransactions.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/categoryIcon.dart';
@@ -60,7 +61,11 @@ onNotification(ServiceNotificationEvent event) async {
   String messageString = getNotificationMessage(event);
   recentCapturedNotifications.insert(0, messageString);
   recentCapturedNotifications.take(50);
-  queueTransactionFromMessage(messageString);
+  final dynamic templateResult = await queueTransactionFromMessage(messageString);
+  // No template matched: try reading the bank SMS directly (off unless turned on in the settings).
+  if (templateResult == false && event.hasRemoved != true) {
+    await queueTransactionFromSmartParse(event.title, event.content);
+  }
 }
 
 class InitializeNotificationService extends StatefulWidget {
@@ -231,6 +236,16 @@ class _AutoTransactionsPageNotificationsState
           description:
               "When a notification is dismissed and the app is open, attempt to add a transaction given its information. Create a template so Paddhu Pusthakam understands the format of a notification.",
           initialValue: appStateSettings["notificationScanning"],
+        ),
+        SettingsContainerSwitch(
+          onSwitched: (value) async {
+            await updateSettings("notificationSmartParse", value,
+                updateGlobalState: false);
+          },
+          title: "Smart bank SMS parsing",
+          description:
+              "When a bank SMS notification matches no template, read the amount, merchant and account from it and open a prefilled transaction. Needs Notification Transactions turned on.",
+          initialValue: appStateSettings["notificationSmartParse"] == true,
         ),
         StreamBuilder<List<ScannerTemplate>>(
           stream: database.watchAllScannerTemplates(),

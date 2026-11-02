@@ -1,0 +1,205 @@
+{
+ "source": "synthetic, fake digits",
+ "cases": [
+  {
+   "id": "s1",
+   "sender": "AX-AXISBK-S",
+   "text": "INR 38.00 debited A/c no. XX1111 26-04-25, 12:55:43 UPI/P2M/012203602178/KSHEERA FARM Not you? SMS BLOCKUPI Cust ID to 919951860002 Axis Bank",
+   "expected": {
+    "amount": 38.0,
+    "isExpense": true,
+    "merchant": "KSHEERA FARM",
+    "cardPayment": false,
+    "category": "groceries",
+    "title": "Ksheera Farm",
+    "instrumentKey": "axis:account:1111"
+   }
+  },
+  {
+   "id": "s2",
+   "sender": "VM-SBIUPI",
+   "text": "Dear SBI User, your A/c X2222-debited by Rs211.0 on 28May22 transfer to Swiggy Ref No 214828237607. If not done by u, fwd this SMS to 9223008333",
+   "expected": {
+    "amount": 211.0,
+    "isExpense": true,
+    "merchant": "Swiggy",
+    "cardPayment": false,
+    "category": "dining",
+    "title": "Swiggy",
+    "instrumentKey": "sbi:account:2222"
+   }
+  },
+  {
+   "id": "s3",
+   "sender": "VM-SBIUPI",
+   "text": "Dear UPI user A/C X2222 debited by 208.0 on date 15Jul23 trf to THOTA SAI SIREES Refno 356251296499. If not u? call 1800111109. -SBI",
+   "expected": {
+    "amount": 208.0,
+    "isExpense": true,
+    "merchant": "THOTA SAI SIREES",
+    "cardPayment": false,
+    "category": "",
+    "title": "Thota Sai Sirees",
+    "instrumentKey": "sbi:account:2222"
+   }
+  },
+  {
+   "id": "s4",
+   "sender": "AD-FEDBNK",
+   "text": "Rs 179.00 debited via UPI on 25-01-2025 07:32:18 to VPA vodafone1.payu@hdfcbank.Ref No 030148999171.Small txns?Use UPI Lite!-Federal Bank",
+   "expected": {
+    "amount": 179.0,
+    "isExpense": true,
+    "merchant": "vodafone1",
+    "cardPayment": false,
+    "category": "bills_fees",
+    "title": "Vodafone1",
+    "instrumentKey": "federal:unknown:"
+   }
+  },
+  {
+   "id": "s5",
+   "sender": "AD-FEDBNK",
+   "text": "Rs 50.00 debited via UPI on 08-03-2025 20:55:11 to VPA paytmqr1wfze985pq@paytm.Ref No 875720200675.Small txns?Use UPI Lite!-Federal Bank",
+   "expected": {
+    "amount": 50.0,
+    "isExpense": true,
+    "merchant": "",
+    "cardPayment": false,
+    "category": "",
+    "title": "Payment",
+    "instrumentKey": "federal:unknown:"
+   }
+  },
+  {
+   "id": "s6",
+   "sender": "JM-ICICIT",
+   "text": "INR 514.00 spent using ICICI Bank Card XX3333 on 29-Jan-25 on IND*Amazon.in -. Avl Limit: INR 49,486.00. If not you, call 1800 2662/SMS BLOCK 3333 to 9215676766.",
+   "expected": {
+    "amount": 514.0,
+    "isExpense": true,
+    "merchant": "IND*Amazon",
+    "cardPayment": false,
+    "category": "shopping",
+    "title": "IND*Amazon",
+    "instrumentKey": "icici:card:3333"
+   }
+  },
+  {
+   "id": "s7",
+   "sender": "AD-HDFCBK",
+   "text": "Rs.3502 spent on HDFC Bank Card x4444 at FSN Ecommerce Ventures on 2025-02-07:18:35:42.Not U? To Block & Reissue Call 18002586161",
+   "expected": {
+    "amount": 3502.0,
+    "isExpense": true,
+    "merchant": "FSN Ecommerce Ventures",
+    "cardPayment": false,
+    "category": "shopping",
+    "title": "FSN Ecommerce Ventures",
+    "instrumentKey": "hdfc:card:4444"
+   }
+  },
+  {
+   "id": "s8",
+   "sender": "AD-ICICIB",
+   "text": "Dear Customer, Acct XX555 is credited with Rs 3384.00 on 29-Jan-25 from ASHOK KUMAR. UPI:233170383072-ICICI Bank.",
+   "expected": {
+    "amount": 3384.0,
+    "isExpense": false,
+    "merchant": "ASHOK KUMAR",
+    "cardPayment": false,
+    "category": "",
+    "title": "Ashok Kumar",
+    "instrumentKey": "icici:account:555"
+   }
+  },
+  {
+   "id": "s9",
+   "sender": "AD-ICICIB",
+   "text": "ICICI Bank Acct XX555 debited for Rs 25.00 on 01-Feb-25; Hyderabad Metro credited. UPI:503209159083. Call 18002662 for dispute.",
+   "expected": {
+    "amount": 25.0,
+    "isExpense": true,
+    "merchant": "Hyderabad Metro",
+    "cardPayment": false,
+    "category": "transit",
+    "title": "Hyderabad Metro",
+    "instrumentKey": "icici:account:555"
+   }
+  },
+  {
+   "id": "s10",
+   "sender": "AD-ICICIB",
+   "text": "Dear Customer, Payment of INR 3384 has been received on your ICICI Bank Credit Card Account 4xxx3333 on 29-JAN-25.Thank you.",
+   "expected": {
+    "amount": 3384.0,
+    "isExpense": true,
+    "merchant": "",
+    "cardPayment": true,
+    "category": "",
+    "title": "Card bill payment",
+    "instrumentKey": "icici:credit_card:3333"
+   }
+  },
+  {
+   "id": "s11",
+   "sender": "VM-SBIINB",
+   "text": "Dear SBI Customer, Rs.500 withdrawn at HDF ATM S1ANCH04 from A/cX2222 on 16May23 Transaction Number 313618003502. Available Balance Rs.796.",
+   "expected": {
+    "amount": 500.0,
+    "isExpense": true,
+    "merchant": "ATM withdrawal",
+    "cardPayment": false,
+    "category": "",
+    "title": "ATM withdrawal",
+    "instrumentKey": "sbi:account:2222"
+   }
+  },
+  {
+   "id": "s12",
+   "sender": "AX-AXISBK-S",
+   "text": "Zomato Ltd has requested money from you on the Amazon App. On approving the request, INR 294.00 will be debited from your A/c.",
+   "expected": null
+  },
+  {
+   "id": "s13",
+   "sender": "AX-AXISBK-S",
+   "text": "123456 is your OTP for payment of Rs 10. Do not share.",
+   "expected": null
+  },
+  {
+   "id": "s14",
+   "sender": "AX-AXISBK-S",
+   "text": "INR 35154.00 credited to A/c no. XX1111 on 03-05-25 at 18:29:38 IST. Info - ACME PVT",
+   "expected": {
+    "amount": 35154.0,
+    "isExpense": false,
+    "merchant": "ACME PVT",
+    "cardPayment": false,
+    "category": "",
+    "title": "Acme Pvt",
+    "instrumentKey": "axis:account:1111"
+   }
+  },
+  {
+   "id": "s15",
+   "sender": "JD-ZEPTON-T",
+   "text": "Dear Customer, Your payment of Rs. 55.00 using Zepto Cash is successful. Updated Zepto Cash balance is Rs.0.00.",
+   "expected": {
+    "amount": 55.0,
+    "isExpense": true,
+    "merchant": "Zepto Cash",
+    "cardPayment": false,
+    "category": "groceries",
+    "title": "Zepto Cash",
+    "instrumentKey": "zepto_cash:wallet:"
+   }
+  },
+  {
+   "id": "s16",
+   "sender": "AD-HELLO",
+   "text": "Hello, see you tomorrow at 5",
+   "expected": null
+  }
+ ]
+}
