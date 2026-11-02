@@ -2,6 +2,7 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/knownAccounts.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/smsTransactionParser.dart';
 import 'package:budget/widgets/openPopup.dart';
@@ -47,7 +48,11 @@ Future<bool> queueTransactionFromSmartParse(String? sender, String? body) async 
     category = null;
   }
 
-  final String? account = parsed.instrumentName;
+  // Your own name for the account when it is known, otherwise "SBI ••6919" style.
+  final KnownAccount? known = knownAccountFor(parsed.instrumentKey);
+  final String? account = known != null
+      ? (known.closed ? '${known.name} (closed)' : known.name)
+      : parsed.instrumentName;
 
   pushRoute(
     null,
