@@ -30,7 +30,8 @@
     <application
         android:requestLegacyExternalStorage="true"
         android:label="Paddhu Pusthakam"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <!-- Use the new rendering engine Impeller (experimental) -->
         <!-- <meta-data
         android:name="io.flutter.embedding.android.EnableImpeller"
