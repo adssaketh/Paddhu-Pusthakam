@@ -320,7 +320,8 @@ Future executeAppLink(BuildContext? context, Uri uri,
     case "importFromPing":
       // Opened by ShareReceiverActivity after Ping shares its SMS file
       if (context != null) {
-        pushRoute(context, ImportFromPingPage());
+        pushRoute(
+            context, ImportFromPingPage(autoOpenSingle: params["single"] == "1"));
       }
       break;
     case "addTransactionRoute":

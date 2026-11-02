@@ -25,9 +25,13 @@ import 'package:provider/provider.dart';
 /// Opened by the share sheet (the shared file is already in the app's cache), or with
 /// [pickFile] = true to choose a Ping export file yourself.
 class ImportFromPingPage extends StatefulWidget {
-  const ImportFromPingPage({this.pickFile = false, super.key});
+  const ImportFromPingPage(
+      {this.pickFile = false, this.autoOpenSingle = false, super.key});
 
   final bool pickFile;
+
+  /// Ping's "Add to Paddhu" button sends one SMS: open the Add Transaction page for it straight away.
+  final bool autoOpenSingle;
 
   @override
   State<ImportFromPingPage> createState() => _ImportFromPingPageState();
@@ -41,6 +45,12 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
 
   /// SMS ids that already exist in Paddhu (from the note marker).
   Set<String> savedIds = {};
+
+  /// Day + text keys of the SMS already in Paddhu, which also catches the same SMS sent another way.
+  Set<String> savedKeys = {};
+
+  bool _isSaved(PingImportRow r) =>
+      savedIds.contains(r.smsId) || savedKeys.contains(r.contentKey);
 
   /// SMS ids ticked for saving.
   Set<String> ticked = {};
@@ -69,18 +79,24 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
     return await file.readAsString();
   }
 
-  Future<Set<String>> _existingPingIds() async {
+  /// [ids, keys] found in the notes of transactions that came from Ping.
+  Future<List<Set<String>>> _existingPingMarkers() async {
     final rows = await (database.select(database.transactions)
           ..where((t) => t.note.like('%$kPingNoteMarker%')))
         .get();
-    final RegExp re = RegExp(r'Ping SMS #(\w+)');
+    final RegExp idRe = RegExp(r'Ping SMS #([\w-]+)');
+    final RegExp keyRe = RegExp(r'Ping SMS key ([\w-]+)');
     final Set<String> ids = {};
+    final Set<String> keys = {};
     for (final t in rows) {
-      for (final m in re.allMatches(t.note)) {
+      for (final m in idRe.allMatches(t.note)) {
         ids.add(m.group(1)!);
       }
+      for (final m in keyRe.allMatches(t.note)) {
+        keys.add(m.group(1)!);
+      }
     }
-    return ids;
+    return [ids, keys];
   }
 
   Future<void> _load() async {
@@ -91,18 +107,27 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
         return;
       }
       final PingImport parsed = parsePingExport(text);
-      final Set<String> existing = await _existingPingIds();
+      final List<Set<String>> existing = await _existingPingMarkers();
+      savedIds = existing[0];
+      savedKeys = existing[1];
       final Set<String> toTick = {
         for (final r in parsed.rows)
-          if (!existing.contains(r.smsId) && r.tickByDefault) r.smsId,
+          if (!_isSaved(r) && r.tickByDefault) r.smsId,
       };
       if (!mounted) return;
       setState(() {
         data = parsed;
-        savedIds = existing;
         ticked = toTick;
         loading = false;
       });
+      // One SMS from the "Add to Paddhu" button: go straight to the Add Transaction page for it.
+      final List<PingImportRow> open =
+          parsed.rows.where((r) => !_isSaved(r)).toList();
+      if (widget.autoOpenSingle && open.length == 1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _editRow(open.first);
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -173,7 +198,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
     final PingImport? d = data;
     if (d == null || saving) return;
     final List<PingImportRow> rows = d.rows
-        .where((r) => ticked.contains(r.smsId) && !savedIds.contains(r.smsId))
+        .where((r) => ticked.contains(r.smsId) && !_isSaved(r))
         .toList();
     if (rows.isEmpty) return;
 
@@ -235,6 +260,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
         );
         saved++;
         savedIds.add(row.smsId);
+        savedKeys.add(row.contentKey);
         ticked.remove(row.smsId);
         progress = saved;
         if (saved % 25 == 0 && mounted) setState(() {});
@@ -293,12 +319,17 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
       ),
     );
     // If it was saved there, its note now carries the marker: show it as already in Paddhu.
-    final Set<String> existing = await _existingPingIds();
+    final List<Set<String>> existing = await _existingPingMarkers();
     if (!mounted) return;
     setState(() {
-      savedIds = existing;
-      ticked.removeAll(existing);
+      savedIds = existing[0];
+      savedKeys = existing[1];
+      ticked.removeWhere((id) => savedIds.contains(id));
     });
+    // The single SMS from the "Add to Paddhu" button is done once it is saved: leave this screen.
+    if (widget.autoOpenSingle && _isSaved(row) && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -311,7 +342,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
       '${d.year}-${_two(d.month)}-${_two(d.day)} ${_two(d.hour)}:${_two(d.minute)}';
 
   Widget _buildRow(PingImportRow row) {
-    final bool already = savedIds.contains(row.smsId);
+    final bool already = _isSaved(row);
     final bool isTicked = ticked.contains(row.smsId);
     final Color amountColor = row.isExpense
         ? Theme.of(context).colorScheme.error
@@ -385,16 +416,16 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
   }
 
   List<Widget> _buildHeader(PingImport d) {
-    final int newCount = d.rows.where((r) => !savedIds.contains(r.smsId)).length;
+    final int newCount = d.rows.where((r) => !_isSaved(r)).length;
     final int alreadyCount = d.rows.length - newCount;
     final int tickedCount = d.rows
-        .where((r) => ticked.contains(r.smsId) && !savedIds.contains(r.smsId))
+        .where((r) => ticked.contains(r.smsId) && !_isSaved(r))
         .length;
 
     // how many ticked rows go into each wallet
     final Map<String, int> perWallet = {};
     for (final r in d.rows) {
-      if (ticked.contains(r.smsId) && !savedIds.contains(r.smsId)) {
+      if (ticked.contains(r.smsId) && !_isSaved(r)) {
         perWallet[r.walletName] = (perWallet[r.walletName] ?? 0) + 1;
       }
     }
@@ -437,7 +468,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
                 onTap: () => setState(() {
                   ticked = {
                     for (final r in d.rows)
-                      if (!savedIds.contains(r.smsId)) r.smsId,
+                      if (!_isSaved(r)) r.smsId,
                   };
                 }),
               ),

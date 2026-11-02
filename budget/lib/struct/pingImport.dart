@@ -15,12 +15,17 @@ import 'smsTransactionParser.dart';
 /// same range is imported twice. The SMS id is Android's own id, stable on the same phone.
 const String kPingNoteMarker = 'Ping SMS #';
 
+/// Second marker: the same SMS can arrive twice, once from the "Add to Paddhu" button (which has no Android
+/// SMS id) and once from a date range, so the text of the message (and its day) is also remembered.
+const String kPingKeyMarker = 'Ping SMS key ';
+
 /// File name used when the shared file is copied into the app's cache (ShareReceiverActivity.java).
 const String kPingImportFileName = 'ping-import.json';
 
 class PingImportRow {
   const PingImportRow({
     required this.smsId,
+    required this.contentKey,
     required this.sender,
     required this.date,
     required this.amount,
@@ -36,6 +41,9 @@ class PingImportRow {
   });
 
   final String smsId;
+
+  /// Day plus a hash of the message text, see kPingKeyMarker.
+  final String contentKey;
   final String sender;
   final DateTime date;
 
@@ -63,7 +71,7 @@ class PingImportRow {
   String get note {
     final account = accountName;
     final head = account == null ? '' : '$account${closed ? ' (closed)' : ''}\n';
-    return '$head$kPingNoteMarker$smsId';
+    return '$head$kPingNoteMarker$smsId $kPingKeyMarker$contentKey';
   }
 }
 
@@ -91,6 +99,23 @@ final RegExp _cardBillDebitRe = RegExp(
   r'credit ?card payment|cc ?bill|billpay|card bill|sbi card +payment|cc payment',
   caseSensitive: false,
 );
+
+String _two(int n) => n.toString().padLeft(2, '0');
+
+/// FNV-1a, the same on every run (Dart's String.hashCode is not).
+String _stableHash(String text) {
+  int h = 0x811c9dc5;
+  for (final int unit in text.codeUnits) {
+    h ^= unit;
+    h = (h * 0x01000193) & 0xFFFFFFFF;
+  }
+  return h.toRadixString(16);
+}
+
+String _contentKey(String body, DateTime date) {
+  final String normalized = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return '${date.year}${_two(date.month)}${_two(date.day)}-${_stableHash(normalized)}';
+}
 
 String _walletForUnknown(String instrumentKey) {
   final parts = instrumentKey.split(':');
@@ -144,6 +169,7 @@ PingImport parsePingExport(String jsonText) {
     final KnownAccount? known = knownAccountFor(parsed.instrumentKey);
     rows.add(PingImportRow(
       smsId: id,
+      contentKey: _contentKey(body, date),
       sender: sender,
       date: date,
       amount: parsed.amount,
