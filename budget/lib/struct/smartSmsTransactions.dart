@@ -33,10 +33,15 @@ Future<bool> queueTransactionFromSmartParse(String? sender, String? body) async 
   if (_handledSmsKeys.length > 50) _handledSmsKeys.removeLast();
 
   // 1. A category you chose for this title before (Paddhu's associated titles) beats the rules.
-  TransactionCategory? category =
-      (await database.getSimilarAssociatedTitles(title: parsed.title, limit: 1))
-          .firstOrNull
-          ?.category;
+  //    Only when the SMS named a merchant: generic titles like "Payment" would otherwise carry one
+  //    category over to every message that has no merchant.
+  TransactionCategory? category;
+  if (parsed.merchant.isNotEmpty) {
+    category = (await database.getSimilarAssociatedTitles(
+            title: parsed.title, limit: 1))
+        .firstOrNull
+        ?.category;
+  }
 
   // 2. Otherwise the rule-based suggestion, when it maps to one of the default categories.
   if (category == null && parsed.categoryPk != null) {
