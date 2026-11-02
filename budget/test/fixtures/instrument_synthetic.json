@@ -1,0 +1,125 @@
+{
+ "source": "synthetic, fake digits",
+ "cases": [
+  {
+   "id": "1",
+   "sender": "JM-ICICIT",
+   "text": "INR 100.00 spent using ICICI Bank Card XX2222 on 25-Jan-25 on Shop. Avl Limit: INR 1,000.00.",
+   "key": "icici:card:2222",
+   "label": "ICICI card ••2222",
+   "closed": false
+  },
+  {
+   "id": "2",
+   "sender": "AD-HDFCBK",
+   "text": "Rs.350 spent on HDFC Bank Card x3333 at Shop on 2025-02-07:18:35:42.Not U? To Block & Reissue Call 18002586161",
+   "key": "hdfc:card:3333",
+   "label": "HDFC card ••3333",
+   "closed": false
+  },
+  {
+   "id": "3",
+   "sender": "JK-AUBANK",
+   "text": "Debited INR 0.97 from A/c X4444 on 26-JAN-2025 Bal INR 3.67 Not you? -AU Bank",
+   "key": "au:account:4444",
+   "label": "AU ••4444",
+   "closed": false
+  },
+  {
+   "id": "4",
+   "sender": "JD-ZEPTON-T",
+   "text": "Dear Customer, Your payment of Rs. 55.00 using Zepto Cash is successful. Updated Zepto Cash balance is Rs.0.00.",
+   "key": "zepto_cash:wallet:",
+   "label": "Zepto Cash",
+   "closed": false
+  },
+  {
+   "id": "5",
+   "sender": "AX-AXISBK-S",
+   "text": "123456 is your OTP for payment of Rs 10. Do not share.",
+   "key": null,
+   "label": null,
+   "closed": false
+  },
+  {
+   "id": "6",
+   "sender": "AX-ABCDEF",
+   "text": "Hello there, see you tomorrow",
+   "key": null,
+   "label": null,
+   "closed": false
+  },
+  {
+   "id": "7",
+   "sender": "AD-ICICIB",
+   "text": "ICICI Bank Acct XX555 debited for Rs 10.00 on 01-Jan-25; UPI:123",
+   "key": "icici:account:1555",
+   "label": "ICICI ••1555",
+   "closed": false
+  },
+  {
+   "id": "8",
+   "sender": "AD-ICICIB",
+   "text": "ICICI Bank Acct XX1555 credited with Rs 20.00 on 02-Jan-25",
+   "key": "icici:account:1555",
+   "label": "ICICI ••1555",
+   "closed": false
+  },
+  {
+   "id": "9",
+   "sender": "AX-AXISBK-S",
+   "text": "Rs 500 debited from Axis Bank A/c XX6666 on 03-Jan-25 for CreditCard Payment",
+   "key": "axis:account:6666",
+   "label": "Axis ••6666",
+   "closed": false
+  },
+  {
+   "id": "10",
+   "sender": "AD-FEDBNK",
+   "text": "Rs 179.00 debited via UPI on 25-01-2025 to VPA shop@bank.Ref No 1234.-Federal Bank",
+   "key": "federal:account:7777",
+   "label": "Federal ••7777",
+   "closed": true
+  },
+  {
+   "id": "11",
+   "sender": "AD-FEDBNK",
+   "text": "Federal Bank A/c XX7777 debited for Rs 5.00 on 04-Jan-25",
+   "key": "federal:account:7777",
+   "label": "Federal ••7777",
+   "closed": true
+  },
+  {
+   "id": "12",
+   "sender": "JAJIOPAY",
+   "text": "Rs 99 payment received on Jio Pay wallet",
+   "key": "jio_pay_wallet:wallet:",
+   "label": "JIO_PAY_WALLET",
+   "closed": false
+  },
+  {
+   "id": "13",
+   "sender": "JMSBIDCM",
+   "text": "Your NETFLIX e-mandate payment for Rs. 99.00 is due and will be processed through SBI Debit card ending 8888.",
+   "key": "sbi:debit_card:8888",
+   "label": "SBI debit ••8888",
+   "closed": false
+  },
+  {
+   "id": "14",
+   "sender": "BV-EPFOHO",
+   "text": "Dear XXXXXXXX6666, your passbook balance is Rs. 1,000/-. Contribution of Rs. 100/- has been received.",
+   "key": "axis:account:6666",
+   "label": "Axis ••6666",
+   "closed": false
+  },
+  {
+   "id": "15",
+   "sender": "VM-AxisBk",
+   "text": "Rs 20 debited from Axis Bank A/c XX6666 on 05-Jan-25 UPI/123",
+   "key": "axis:account:6666",
+   "label": "Axis ••6666",
+   "closed": false
+  }
+ ]
+}
