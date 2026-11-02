@@ -41,6 +41,43 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:75913201715:android:1743ccce3fb699b95bfb46",
+        "android_client_info": {
+          "package_name": "com.mansaketh.paddhupusthakam"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "75913201715-p7hnc2stmmlppq1dfm093shvobjdfc57.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mansaketh.paddhupusthakam",
+            "certificate_hash": "dc1520a6e4505fe1629ba33f47b9710ff274663b"
+          }
+        },
+        {
+          "client_id": "75913201715-jmvfvb0f9b9n670eif4vvesrpe7c2g20.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBj44s4oxBGR-DL--v-uU7dnHSDXxNxxC4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "75913201715-jmvfvb0f9b9n670eif4vvesrpe7c2g20.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"
