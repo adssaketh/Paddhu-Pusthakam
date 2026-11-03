@@ -300,43 +300,41 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                         context, null,
                                         isHomePageSpace: true) /
                                     1.34),
-                            child: Stack(
-                              alignment: AlignmentDirectional.bottomStart,
-                              children: [
-                            // The logo sits in the empty space above the greeting
-                            Positioned.fill(
-                              child: Align(
-                                alignment: Alignment(0, -0.45),
-                                child: HomePageLogo(),
-                              ),
-                            ),
-                            Container(
+                            child: Container(
                               // Subtract one (1) here because of the thickness of the wiper above
                               alignment: AlignmentDirectional.bottomStart,
                               padding: EdgeInsetsDirectional.only(
                                   start: 9,
                                   bottom: enableDoubleColumn(context) ? 10 : 17,
                                   end: 9),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              // The logo sits above the greeting, so the banner grows to fit it
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  HomePageUsername(
-                                    animationControllerHeader:
-                                        _animationControllerHeader,
-                                    animationControllerHeader2:
-                                        _animationControllerHeader2,
-                                    showUsername: showUsername,
-                                    showGreeting: showGreeting,
-                                    enterNameBottomSheet: enterNameBottomSheet,
-                                    username:
-                                        appStateSettings["username"] ?? "",
+                                  Center(child: HomePageLogo()),
+                                  SizedBox(height: 14),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      HomePageUsername(
+                                        animationControllerHeader:
+                                            _animationControllerHeader,
+                                        animationControllerHeader2:
+                                            _animationControllerHeader2,
+                                        showUsername: showUsername,
+                                        showGreeting: showGreeting,
+                                        enterNameBottomSheet:
+                                            enterNameBottomSheet,
+                                        username:
+                                            appStateSettings["username"] ?? "",
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ),
-                              ],
                             ),
                           )
                         : SizedBox(height: 5),
