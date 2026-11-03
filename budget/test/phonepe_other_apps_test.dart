@@ -1,0 +1,128 @@
+import '../lib/struct/phonePeParser.dart';
+
+void check(bool ok, String msg) {
+  if (!ok) throw Exception('FAILED: $msg');
+  print('ok  $msg');
+}
+
+void main() {
+  final paytm = parseUpiScreenshotText('''Paytm
+Paid Successfully
+₹697.43
+Rupees Six Hundred Ninety Seven and
+Forty Three Paise Only
+To: Indian Oil Petrol
+Pump 2 Srichakra
+Fuels Station
+UPI ID: q311353638@ybl
+From: Adhikarla
+Dinakara Srinivasa
+Saketh
+UPI ID:
+saketh.adhikarla@ptaxis
+Axis Bank - 6372
+UPI Ref No: 628671952568
+02:12 PM, 13 Oct 2026
+Paytm | Powered by UPI | AXIS BANK''')!;
+  check(paytm.app == 'Paytm' && paytm.amount == 697.43 && paytm.isExpense, 'paytm amount/app ${paytm.amount} ${paytm.app}');
+  check(paytm.party == 'Indian Oil Petrol Pump 2 Srichakra Fuels Station', 'paytm party "${paytm.party}"');
+  check(paytm.date == DateTime(2026, 10, 13, 14, 12), 'paytm date ${paytm.date}');
+  check(paytm.utr == '628671952568' && paytm.accountDigits == '6372', 'paytm ref/account ${paytm.utr} ${paytm.accountDigits}');
+  check(phonePeToRow(paytm).walletName == 'Saketh - Axis', 'paytm wallet ${phonePeToRow(paytm).walletName}');
+
+  final gpay = parseUpiScreenshotText('''S
+To SWIGGY
+₹304
+Completed
+30 Oct 2025, 5:45pm
+State Bank of India
+652898XXXXXXXX64
+Payment of ₹304 completed
+Receiver's bank has confirmed
+deposit of money to SWIGGY's bank
+account
+UPI transaction ID
+566939649602
+To: SWIGGY
+••••iggy@icici
+From: A D SRINIVASA SAKETH (State
+Bank of India)
+••••la-8@okicici on Google Pay
+Google transaction ID
+CICAgMjA8OWRAg
+Google Pay''')!;
+  check(gpay.app == 'Google Pay' && gpay.amount == 304 && gpay.party == 'Swiggy', 'gpay ${gpay.app} ${gpay.amount} "${gpay.party}"');
+  check(gpay.date == DateTime(2025, 10, 30, 17, 45), 'gpay date ${gpay.date}');
+  check(gpay.utr == '566939649602' && gpay.accountDigits == '64', 'gpay ref/account ${gpay.utr} ${gpay.accountDigits}');
+
+  final bhim = parseUpiScreenshotText('''BHIM - Bharat's Own Payments App
+Paid
+₹184.00
+Banking Name
+Zepto
+Transaction ID
+Date & Time
+213607712405
+31st Oct 26,
+09:36 pm
+To UPI ID
+Remarks
+cf.zepto12@ca
+NO REMARK
+shfreensdlpb
+Debited account
+AXIS BANK
+XX566372
+Process details
+Payment initiated by ADHIKARLA
+Payment received by Zepto
+Hide details
+Split this expense
+BHIM UPI''')!;
+  check(bhim.app == 'BHIM' && bhim.amount == 184 && bhim.party == 'Zepto', 'bhim ${bhim.app} ${bhim.amount} "${bhim.party}"');
+  check(bhim.date == DateTime(2026, 10, 31, 21, 36), 'bhim date ${bhim.date}');
+  check(bhim.accountDigits == '566372' && bhim.utr == '213607712405', 'bhim account/ref ${bhim.accountDigits} ${bhim.utr}');
+  check(phonePeToRow(bhim).walletName == 'Saketh - Axis', 'bhim wallet');
+
+  final cred = parseUpiScreenshotText('''X
+Pavan Medical And General...
+₹132
+SUCCESSFUL
+05:26pm, 22nd sep'26
+Paid via CRED
+SBI RUPAY CREDIT CARD
+RuPay xxxx XX64
+PAID VIA UPI
+Check limit
+payment initiated from your SBI RUPAY
+CREDIT CARD Rupay credit card
+amount deducted from Saketh's Rupay
+paying them again?''')!;
+  check(cred.app == 'CRED' && cred.amount == 132 && cred.party == 'Pavan Medical And General', 'cred ${cred.app} ${cred.amount} "${cred.party}"');
+  check(cred.date == DateTime(2026, 9, 22, 17, 26) && cred.accountDigits == '64', 'cred date/account ${cred.date} ${cred.accountDigits}');
+  check(phonePeToRow(cred).smsId.startsWith('pp-'), 'cred has a stable id without a ref: ${phonePeToRow(cred).smsId}');
+
+  final mk = parseUpiScreenshotText('''₹133.19
+UPIIntent
+UPI Payment Successful
+28 Oct '26 at 11:11AM
+To
+Z
+Zomato Limited
+zomato2.payu@indus
+From
+Adhikarla Dinakara Srinivasa
+Saketh
+9550002618@ikwik
+AXIS BANK - 6372
+MobiKwik Order ID
+OMK27d0f82087ad20d
+UPI Transaction ID
+104332350049
+Powered By UPI HDFC BANK''')!;
+  check(mk.amount == 133.19 && mk.party == 'Zomato Limited', 'mobikwik ${mk.amount} "${mk.party}"');
+  check(mk.date == DateTime(2026, 10, 28, 11, 11) && mk.utr == '104332350049' && mk.accountDigits == '6372', 'mobikwik date/ref/account ${mk.date} ${mk.utr} ${mk.accountDigits}');
+
+  check(parseUpiScreenshotText('Payment failed\n₹50\nUPI\n1 Nov 2026 5:00 pm') == null, 'failed ignored');
+  check(parseUpiScreenshotText('hello 12 Oct 2026') == null, 'random text ignored');
+}

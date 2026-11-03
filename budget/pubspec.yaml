@@ -93,6 +93,8 @@ dependencies:
   visibility_detector: ^0.4.0+2
   confetti: ^0.7.0
   image_picker: ^1.1.2
+  google_mlkit_text_recognition: ^0.13.0
+  syncfusion_flutter_pdf: ">=23.1.36 <25.0.0"
   flutter_displaymode: ^0.6.0
   notification_listener_service: ^0.3.3
   home_widget: ^0.5.0

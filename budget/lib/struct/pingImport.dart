@@ -39,6 +39,7 @@ class PingImportRow {
     required this.closed,
     required this.tickByDefault,
     this.knownAccount = false,
+    this.extraNote = '',
   });
 
   final String smsId;
@@ -72,11 +73,15 @@ class PingImportRow {
   /// automatically, see autoSmsPolicy.dart.
   final bool knownAccount;
 
+  /// Extra line for the note (for example the PhonePe details), before the duplicate markers.
+  final String extraNote;
+
   /// Text stored in the transaction's note: the account, then the duplicate marker.
   String get note {
     final account = accountName;
     final head = account == null ? '' : '$account${closed ? ' (closed)' : ''}\n';
-    return '$head$kPingNoteMarker$smsId $kPingKeyMarker$contentKey';
+    final extra = extraNote.isEmpty ? '' : '$extraNote\n';
+    return '$head$extra$kPingNoteMarker$smsId $kPingKeyMarker$contentKey';
   }
 }
 

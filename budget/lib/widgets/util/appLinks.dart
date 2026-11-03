@@ -6,6 +6,7 @@ import 'package:budget/pages/addEmailTemplate.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/autoTransactionsPageEmail.dart';
 import 'package:budget/pages/importFromPingPage.dart';
+import 'package:budget/pages/phonePeImportPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/throttler.dart';
@@ -315,6 +316,20 @@ Future executeAppLink(BuildContext? context, Uri uri,
           dynamic res = await processAddTransactionFromParams(context, params);
           if (onDebug != null) onDebug(res);
         }
+      }
+      break;
+    case "importFromPhonePe":
+      // Opened by ShareReceiverActivity after a screenshot / statement was shared to Paddhu Pusthakam
+      if (context != null) {
+        final String kind = params["kind"] ?? "image";
+        pushRoute(
+            context,
+            PhonePeImportPage(
+                source: kind == "pdf"
+                    ? PhonePeSource.sharedPdf
+                    : kind == "csv"
+                        ? PhonePeSource.sharedCsv
+                        : PhonePeSource.sharedImage));
       }
       break;
     case "importFromPing":

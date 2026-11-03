@@ -87,6 +87,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/json" />
             </intent-filter>
+            <!-- A PhonePe screenshot or statement shared to Paddhu Pusthakam -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="text/csv" />
+                <data android:mimeType="text/comma-separated-values" />
+                <data android:mimeType="application/csv" />
+            </intent-filter>
         </activity>
         <!-- Ping hands over new bank SMS here while Paddhu Pusthakam is closed (only Ping is accepted, see PingInboxProvider.java) -->
         <provider

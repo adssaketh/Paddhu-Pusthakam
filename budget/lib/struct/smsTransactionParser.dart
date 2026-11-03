@@ -271,6 +271,11 @@ String _categorize(bool isExpense, String merchant, String body) {
   return '';
 }
 
+/// The category label the keyword rules suggest for a merchant name ('' when none). Used for payments that
+/// do not come as SMS (PhonePe).
+String suggestCategoryLabel(bool isExpense, String merchant) =>
+    _categorize(isExpense, merchant, merchant);
+
 String _titleCase(String s) {
   if (s == s.toUpperCase() || s == s.toLowerCase()) {
     return s

@@ -75,6 +75,8 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
+            // ML Kit text recognition (PhonePe screenshots) mentions optional language packs that are not included
+            proguardFiles 'proguard-rules.pro'
         }
     }
 }

@@ -16,6 +16,7 @@ import 'dart:io';
 import 'package:budget/struct/autoSmsPolicy.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/fixedDepositStore.dart';
+import 'package:budget/struct/phonePeTwins.dart';
 import 'package:budget/struct/pingImport.dart';
 import 'package:budget/struct/pingSave.dart';
 import 'package:budget/database/tables.dart';
@@ -211,6 +212,14 @@ Future<PingInboxResult> processPingInbox() async {
       try {
         for (final PingImportRow row in parsed.rows) {
           if (savedIds.contains(row.smsId) || savedKeys.contains(row.contentKey)) {
+            duplicates++;
+            continue;
+          }
+
+          // already in Paddhu from a PhonePe screenshot / statement: only add the SMS markers to it
+          if (await claimPhonePeTwinForSms(row)) {
+            savedIds.add(row.smsId);
+            savedKeys.add(row.contentKey);
             duplicates++;
             continue;
           }

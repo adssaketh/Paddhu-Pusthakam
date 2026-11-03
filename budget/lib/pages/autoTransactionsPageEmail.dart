@@ -6,6 +6,7 @@ import 'package:budget/pages/addEmailTemplate.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
 import 'package:budget/pages/importFromPingPage.dart';
+import 'package:budget/pages/phonePeImportPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/pingInbox.dart';
 import 'package:budget/struct/settings.dart';
@@ -287,6 +288,30 @@ class _AutoTransactionsPageNotificationsState
             expandedLayout: true,
             onTap: () {
               pushRoute(context, ImportFromPingPage(pickFile: true));
+            },
+          ),
+        ),
+        Padding(
+          padding:
+              const EdgeInsetsDirectional.symmetric(horizontal: 15, vertical: 8),
+          child: Button(
+            label: "Import PhonePe statement (PDF or CSV)",
+            expandedLayout: true,
+            onTap: () {
+              pushRoute(context,
+                  const PhonePeImportPage(source: PhonePeSource.pickStatement));
+            },
+          ),
+        ),
+        Padding(
+          padding:
+              const EdgeInsetsDirectional.symmetric(horizontal: 15, vertical: 8),
+          child: Button(
+            label: "Read a PhonePe screenshot (choose a picture)",
+            expandedLayout: true,
+            onTap: () {
+              pushRoute(context,
+                  const PhonePeImportPage(source: PhonePeSource.pickImage));
             },
           ),
         ),

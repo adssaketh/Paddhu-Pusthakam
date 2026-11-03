@@ -6,6 +6,7 @@ import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/autoSmsPolicy.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/phonePeTwins.dart';
 import 'package:budget/struct/pingImport.dart';
 import 'package:budget/struct/pingInbox.dart';
 import 'package:budget/struct/pingSave.dart';
@@ -33,9 +34,13 @@ class ImportFromPingPage extends StatefulWidget {
       {this.pickFile = false,
       this.autoOpenSingle = false,
       this.reviewQueue = false,
+      this.preloaded,
       super.key});
 
   final bool pickFile;
+
+  /// Payments already read from somewhere else (PhonePe screenshot / statement): shown instead of a Ping file.
+  final PingImport? preloaded;
 
   /// Show the messages waiting in the review list instead of a shared file.
   final bool reviewQueue;
@@ -95,12 +100,23 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
 
   Future<void> _load() async {
     try {
-      final String? text = await _readFileText();
-      if (text == null) {
-        if (mounted) setState(() => loading = false);
-        return;
+      final PingImport parsed;
+      if (widget.preloaded != null) {
+        parsed = widget.preloaded!;
+        // a payment that is already in Paddhu from the bank SMS: add the PhonePe details to it, no second copy
+        List<Set<String>> before = await _existingPingMarkers();
+        for (final PingImportRow r in parsed.rows) {
+          if (before[0].contains(r.smsId) || before[1].contains(r.contentKey)) continue;
+          await claimExistingForPhonePe(r);
+        }
+      } else {
+        final String? text = await _readFileText();
+        if (text == null) {
+          if (mounted) setState(() => loading = false);
+          return;
+        }
+        parsed = parsePingExport(text);
       }
-      final PingImport parsed = parsePingExport(text);
       final List<Set<String>> existing = await _existingPingMarkers();
       savedIds = existing[0];
       savedKeys = existing[1];
@@ -169,6 +185,14 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
 
       try {
         for (final PingImportRow row in rows) {
+          // the same payment may already be in Paddhu from PhonePe: no second copy
+          if (await claimPhonePeTwinForSms(row)) {
+            savedNow.add(row.smsId);
+            savedIds.add(row.smsId);
+            savedKeys.add(row.contentKey);
+            ticked.remove(row.smsId);
+            continue;
+          }
           await saver.save(row);
           saved++;
           savedNow.add(row.smsId);
@@ -189,7 +213,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
       setState(() => saving = false);
       openSnackbar(SnackbarMessage(
         title: "Saved $saved transactions",
-        description: "Imported from Ping",
+        description: widget.preloaded != null ? "Imported from PhonePe" : "Imported from Ping",
         icon: appStateSettings["outlinedIcons"]
             ? Icons.check_circle_outline
             : Icons.check_circle_rounded,
@@ -511,7 +535,11 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
 
     return PageFramework(
       dragDownToDismiss: true,
-      title: widget.reviewQueue ? "Review Ping messages" : "Import from Ping",
+      title: widget.reviewQueue
+          ? "Review Ping messages"
+          : widget.preloaded != null
+              ? "Import from PhonePe"
+              : "Import from Ping",
       listWidgets: widgets,
     );
   }
