@@ -55,7 +55,10 @@ jobs:
 
       - run: flutter build apk --target-platform android-arm64 --release
 
+      - name: Name the APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Paddhu-Pusthakam.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: cashew-apk
-          path: budget/build/app/outputs/flutter-apk/app-release.apk
+          name: paddhu-pusthakam-apk
+          path: budget/build/app/outputs/flutter-apk/Paddhu-Pusthakam.apk
