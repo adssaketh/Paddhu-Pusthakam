@@ -1,5 +1,7 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/struct/loanSchedule.dart';
+import 'package:budget/struct/loanTerms.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/editObjectivesPage.dart';
@@ -1013,6 +1015,15 @@ class WatchTotalAndAmountOfObjective extends StatelessWidget {
       stream: database.watchTotalTowardsObjective(
           Provider.of<AllWallets>(context), objective),
       builder: (context, snapshot) {
+        final LoanTerms? loanTerms = objective.type == ObjectiveType.loan
+            ? loanTermsFor(objective.objectivePk)
+            : null;
+        if (loanTerms != null) {
+          // Instalment loan with interest + GST: total to pay vs paid so far
+          final LoanProgress progress =
+              loanProgress(loanTerms, snapshot.data ?? 0);
+          return builder(progress.totalPayable, progress.repaid, progress.fraction);
+        }
         if (objective.type == ObjectiveType.loan) {
           return StreamBuilder<double?>(
             stream: database.watchTotalAmountObjectiveLoan(

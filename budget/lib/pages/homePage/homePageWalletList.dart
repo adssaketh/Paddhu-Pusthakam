@@ -15,6 +15,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:budget/pages/addButton.dart';
+import 'package:budget/pages/homePage/homePageLoanOutstanding.dart';
 
 class HomePageWalletList extends StatelessWidget {
   @override
@@ -102,6 +103,7 @@ class HomePageWalletList extends StatelessWidget {
                       return Container();
                     },
                   ),
+                  const HomePageLoanOutstanding(),
                   if (appStateSettings["walletsListCurrencyBreakdown"] ==
                           true &&
                       Provider.of<AllWallets>(context)

@@ -1,4 +1,5 @@
 import 'package:budget/database/tables.dart';
+import 'package:budget/pages/loanTermsPage.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -550,6 +551,21 @@ class _AddObjectivePageState extends State<AddObjectivePage>
                       ),
                     ),
                   ),
+                  if (widget.objective == null &&
+                      widget.objectiveType == ObjectiveType.loan)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 7),
+                      child: ButtonIcon(
+                        onTap: () {
+                          // Loan with interest, GST and a monthly EMI: set up on its own page
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                                builder: (_) => const LoanTermsPage()),
+                          );
+                        },
+                        icon: Icons.account_balance_outlined,
+                      ),
+                    ),
                   if (appStateSettings["longTermLoansDifferenceFeature"] ==
                           true &&
                       (widget.objectiveType == ObjectiveType.loan ||

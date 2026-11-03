@@ -1,4 +1,5 @@
 import 'package:budget/database/tables.dart';
+import 'package:budget/pages/loanTermsPage.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -235,6 +236,18 @@ class _ObjectivePageContentState extends State<_ObjectivePageContent> {
                       );
                     },
                   ),
+                  if (widget.objective.type == ObjectiveType.loan)
+                    DropdownItemMenu(
+                      id: "loan-terms",
+                      label: "Loan terms & repaid so far",
+                      icon: Icons.account_balance_outlined,
+                      action: () {
+                        pushRoute(
+                          context,
+                          LoanTermsPage(objective: widget.objective),
+                        );
+                      },
+                    ),
                   // Only show for loan goal
                   // if (widget.objective.type == ObjectiveType.loan &&
                   //     getIsDifferenceOnlyLoan(widget.objective) == false)
