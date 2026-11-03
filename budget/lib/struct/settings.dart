@@ -452,5 +452,9 @@ Future<Set<String>> applyRemoteSettings(List<String> remoteSettingsJson) async {
   await sharedPreferences.setString('userSettings', json.encode(appStateSettings));
   print("Settings updated from another device: " + changed.toString());
   appStateKey.currentState?.refreshAppState();
+  // the Home page keeps its own copy of what it shows (loans, deposits), so it is refreshed too
+  homePageStateKey.currentState?.refreshState();
+  refreshPageFrameworks();
+  transactionsListPageStateKey.currentState?.refreshState();
   return changed;
 }
