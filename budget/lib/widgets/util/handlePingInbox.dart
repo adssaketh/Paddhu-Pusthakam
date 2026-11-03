@@ -20,6 +20,10 @@ Future<void> handlePingInbox({Duration delay = Duration.zero}) async {
       parts.add(
           'Added ${result.saved} transaction${result.saved == 1 ? '' : 's'}');
     }
+    if (result.fixedDeposits > 0) {
+      parts.add(
+          '${result.fixedDeposits} fixed deposit${result.fixedDeposits == 1 ? '' : 's'}');
+    }
     if (result.toReview > 0) {
       parts.add('${result.toReview} to review');
     }

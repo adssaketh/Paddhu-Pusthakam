@@ -14,6 +14,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:budget/struct/autoSmsPolicy.dart';
+import 'package:budget/struct/fixedDeposit.dart';
+import 'package:budget/struct/fixedDepositStore.dart';
 import 'package:budget/struct/pingImport.dart';
 import 'package:budget/struct/pingSave.dart';
 import 'package:budget/database/tables.dart';
@@ -33,6 +35,7 @@ class PingInboxResult {
     this.duplicates = 0,
     this.ignored = 0,
     this.failed = 0,
+    this.fixedDeposits = 0,
   });
 
   final int saved;
@@ -45,7 +48,10 @@ class PingInboxResult {
   /// Left in the inbox to try again next time.
   final int failed;
 
-  bool get didSomething => saved > 0 || toReview > 0;
+  /// Fixed deposits added from "FD booked" messages.
+  final int fixedDeposits;
+
+  bool get didSomething => saved > 0 || toReview > 0 || fixedDeposits > 0;
 }
 
 Future<Directory> _supportSubDir(String name) async {
@@ -165,7 +171,7 @@ Future<PingInboxResult> processPingInbox() async {
     final Set<String> savedKeys = existing[1];
 
     final Directory review = await _supportSubDir(kPingReviewDirName);
-    int saved = 0, toReview = 0, duplicates = 0, ignored = 0, failed = 0;
+    int saved = 0, toReview = 0, duplicates = 0, ignored = 0, failed = 0, fixedDeposits = 0;
 
     for (final File file in files) {
       // 1. Read it. A file that is not a Ping message at all is thrown away, it can never work.
@@ -179,6 +185,22 @@ Future<PingInboxResult> processPingInbox() async {
           await file.delete();
         } catch (_) {}
         continue;
+      }
+
+      // A fixed deposit being booked is added to the Fixed deposits page. The message itself stays in the
+      // list below: when it also says money was debited, that part is still saved as a transaction.
+      for (final Map<String, dynamic> item in items) {
+        try {
+          final DateTime date = DateTime.fromMillisecondsSinceEpoch(
+              item['date'] is num ? (item['date'] as num).toInt() : DateTime.now().millisecondsSinceEpoch);
+          final FdSmsParse? fd = parseFixedDepositSms(
+            body: (item['body'] ?? '').toString(),
+            sender: (item['address'] ?? '').toString(),
+            smsDate: date,
+            smsId: (item['id'] ?? '').toString(),
+          );
+          if (fd != null && await addFixedDepositIfNew(fd.deposit)) fixedDeposits++;
+        } catch (_) {}
       }
 
       // Messages the parser skipped (not a payment, card bill acknowledgement...) simply disappear.
@@ -226,6 +248,7 @@ Future<PingInboxResult> processPingInbox() async {
       duplicates: duplicates,
       ignored: ignored,
       failed: failed,
+      fixedDeposits: fixedDeposits,
     );
   } catch (_) {
     return const PingInboxResult();
