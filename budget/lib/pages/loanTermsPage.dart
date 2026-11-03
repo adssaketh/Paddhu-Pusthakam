@@ -11,6 +11,7 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/loanSchedule.dart';
 import 'package:budget/struct/loanTerms.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/widgets/financeUi.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -170,158 +171,239 @@ class _LoanTermsPageState extends State<LoanTermsPage> {
   @override
   Widget build(BuildContext context) {
     final AllWallets allWallets = Provider.of<AllWallets>(context);
+    final ColorScheme cs = Theme.of(context).colorScheme;
     final LoanTerms? t = _terms();
     final LoanSummary? s = t == null ? null : summarize(t);
     final List<LoanInstalment> schedule =
         t == null ? <LoanInstalment>[] : buildSchedule(t);
     final LoanProgress? p = t == null ? null : loanProgress(t, _linkedSum);
     String money(double v) => convertToMoney(allWallets, v);
+    final DateTime today = DateTime.now();
+
+    LoanInstalment? next;
+    for (final LoanInstalment i in schedule) {
+      if (!_paid.contains(i.number)) {
+        next = i;
+        break;
+      }
+    }
 
     Widget field(String label, TextEditingController c,
         {String? suffix, bool text = false}) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextField(
-          controller: c,
-          keyboardType: text
-              ? TextInputType.text
-              : const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-              labelText: label,
-              suffixText: suffix,
-              border: const OutlineInputBorder()),
-          onChanged: (_) => setState(() {}),
-        ),
+      return TextField(
+        controller: c,
+        keyboardType: text
+            ? TextInputType.text
+            : const TextInputType.numberWithOptions(decimal: true),
+        decoration: finInput(context, label, suffix: suffix),
+        onChanged: (_) => setState(() {}),
       );
     }
 
-    Widget line(String label, String value, {bool bold = false}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+    Widget two(Widget a, Widget b) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
           child: Row(children: [
-            Expanded(
-                child: Text(label,
-                    style: TextStyle(
-                        fontWeight: bold ? FontWeight.bold : FontWeight.normal))),
-            Text(value,
-                style: TextStyle(
-                    fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+            Expanded(child: a),
+            const SizedBox(width: 12),
+            Expanded(child: b),
           ]),
         );
+    Widget one(Widget a) => Padding(padding: const EdgeInsets.only(bottom: 12), child: a);
 
     final List<LoanInstalment> shown =
         _showAll ? schedule : schedule.take(12).toList();
 
     return Scaffold(
       appBar: AppBar(
-          title: Text(widget.objective == null ? 'Add instalment loan' : 'Loan terms')),
+        title: Text(widget.objective == null ? 'New instalment loan' : 'Loan'),
+        centerTitle: false,
+      ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: [
-            field('Name', _name, text: true),
-            DropdownButtonFormField<String>(
-              value: allWallets.indexedByPk.containsKey(_walletPk)
-                  ? _walletPk
-                  : null,
-              decoration: const InputDecoration(
-                  labelText: 'Account', border: OutlineInputBorder()),
-              items: [
-                for (final TransactionWallet w in allWallets.list)
-                  DropdownMenuItem(value: w.walletPk, child: Text(w.name)),
+            // ---- hero
+            FinHero(
+              icon: Icons.account_balance_outlined,
+              label: _name.text.trim().isEmpty ? 'Loan outstanding' : '${_name.text.trim()} · outstanding',
+              amount: p == null ? '—' : money(p.outstanding),
+              caption: s == null ? 'Fill in the details below' : 'Left to pay, with interest and GST',
+              progress: p?.fraction,
+              progressLeft: p == null ? null : 'Paid ${money(p.repaid)}',
+              progressRight: p == null ? null : 'of ${money(p.totalPayable)}',
+              pills: [
+                if (t != null) FinPill('EMI ${money(t.emi)}', icon: Icons.event_repeat, onHero: true),
+                if (t != null) FinPill('${_n(t.annualRatePct)}% a year', icon: Icons.percent, onHero: true),
+                if (t != null)
+                  FinPill('${_paid.length} of ${schedule.length} EMIs paid', icon: Icons.check_circle_outline, onHero: true),
+                if (next != null)
+                  FinPill('Next ${_date(next.dueDate)}', icon: Icons.schedule, onHero: true),
               ],
-              onChanged: (v) {
-                if (v != null) setState(() => _walletPk = v);
-              },
             ),
-            const SizedBox(height: 10),
-            field('Loan amount', _principal),
-            field('Interest rate (per year, reducing balance)', _rate, suffix: '%'),
-            field('Number of monthly instalments', _months),
-            Row(children: [
-              Expanded(child: field('EMI (from the letter)', _emi)),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: TextButton(
-                  onPressed: () {
-                    final double e = suggestedEmi(
-                        _num(_principal), _num(_rate), _num(_months).round());
-                    setState(() => _emi.text = _n(e));
+
+            // ---- details
+            const FinSectionTitle('Loan details'),
+            FinCard(
+              child: Column(children: [
+                one(field('Name', _name, text: true)),
+                one(DropdownButtonFormField<String>(
+                  value: allWallets.indexedByPk.containsKey(_walletPk) ? _walletPk : null,
+                  isExpanded: true,
+                  decoration: finInput(context, 'Account'),
+                  items: [
+                    for (final TransactionWallet w in allWallets.list)
+                      DropdownMenuItem(value: w.walletPk, child: Text(w.name, overflow: TextOverflow.ellipsis)),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _walletPk = v);
                   },
-                  child: const Text('Calculate'),
-                ),
-              ),
-            ]),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: OutlinedButton(
-                onPressed: _pickDate,
-                child: Text('First EMI date: ${_date(_firstEmi)}'),
-              ),
-            ),
-            field('Processing fee (before GST)', _fee),
-            field('GST on interest and fee', _gst, suffix: '%'),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Processing fee already paid'),
-              subtitle: const Text(
-                  'Turn on if it was taken out of the money you received'),
-              value: _feePaid,
-              onChanged: (v) => setState(() => _feePaid = v),
-            ),
-            if (s != null && p != null) ...[
-              const Divider(),
-              line('Loan amount', money(s.principal)),
-              line('Interest over the whole loan', money(s.totalInterest)),
-              line('GST on interest', money(s.gstOnInterest)),
-              line('Processing fee', money(s.fee)),
-              line('GST on fee', money(s.gstOnFee)),
-              line('Total to pay', money(s.totalPayable), bold: true),
-              const SizedBox(height: 6),
-              line('Paid: ticked instalments', money(s.paidFromTicks)),
-              if (widget.objective != null)
-                line('Paid: transactions linked to this loan',
-                    money(_linkedSum < 0 ? -_linkedSum : 0)),
-              line('Outstanding now', money(p.outstanding), bold: true),
-              const Divider(),
-              Row(children: [
-                const Expanded(
-                    child: Text('Instalments paid so far',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-                TextButton(
-                  onPressed: () => setState(
-                      () => _paid = instalmentsDueBy(t!, DateTime.now())),
-                  child: const Text('Tick all due so far'),
+                )),
+                two(field('Loan amount', _principal), field('Interest', _rate, suffix: '% a year')),
+                two(field('Months', _months), Row(children: [
+                  Expanded(child: field('EMI', _emi)),
+                  IconButton(
+                    tooltip: 'Calculate the EMI',
+                    icon: const Icon(Icons.calculate_outlined),
+                    onPressed: () {
+                      final double e = suggestedEmi(_num(_principal), _num(_rate), _num(_months).round());
+                      setState(() => _emi.text = _n(e));
+                    },
+                  ),
+                ])),
+                two(field('Processing fee', _fee), field('GST', _gst, suffix: '%')),
+                one(OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.event),
+                  label: Text('First EMI on ${_date(_firstEmi)}'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                )),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Processing fee already paid'),
+                  subtitle: const Text('Turn on if it was taken out of the money you received'),
+                  value: _feePaid,
+                  onChanged: (v) => setState(() => _feePaid = v),
                 ),
               ]),
-              const Text(
-                  'Tick the months you already paid outside the app. For payments from now on, add a transaction and pick this loan under "Long term loan"; do not tick those here as well.',
-                  style: TextStyle(fontSize: 12)),
-              for (final LoanInstalment i in shown)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  value: _paid.contains(i.number),
-                  onChanged: (v) => setState(() {
-                    if (v == true) {
-                      _paid.add(i.number);
-                    } else {
-                      _paid.remove(i.number);
-                    }
-                  }),
-                  title: Text('#${i.number}  ${_date(i.dueDate)}'),
-                  subtitle: Text(
-                      'EMI ${money(i.emi)} + GST ${money(i.gstOnInterest)} = ${money(i.totalDue)}'),
+            ),
+
+            // ---- breakdown
+            if (s != null && p != null) ...[
+              const FinSectionTitle('Where the total comes from'),
+              FinCard(
+                child: Column(children: [
+                  FinLine('Loan amount', money(s.principal)),
+                  FinLine('Interest', money(s.totalInterest)),
+                  FinLine('GST on interest', money(s.gstOnInterest)),
+                  FinLine('Processing fee', money(s.fee)),
+                  FinLine('GST on fee', money(s.gstOnFee)),
+                  const Divider(height: 18),
+                  FinLine('Total to pay', money(s.totalPayable), bold: true),
+                  const SizedBox(height: 4),
+                  FinLine('Paid: ticked instalments', '− ${money(s.paidFromTicks)}', dim: true),
+                  if (widget.objective != null)
+                    FinLine('Paid: linked transactions', '− ${money(_linkedSum < 0 ? -_linkedSum : 0)}', dim: true),
+                  const Divider(height: 18),
+                  FinLine('Outstanding now', money(p.outstanding), bold: true),
+                ]),
+              ),
+
+              // ---- instalments
+              FinSectionTitle(
+                'Instalments',
+                trailing: TextButton(
+                  onPressed: () => setState(() => _paid = instalmentsDueBy(t!, today)),
+                  child: const Text('Tick all due so far'),
                 ),
-              if (schedule.length > shown.length)
-                TextButton(
-                    onPressed: () => setState(() => _showAll = true),
-                    child: Text('Show all ${schedule.length} instalments')),
+              ),
+              FinCard(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                child: Column(children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                    child: Text(
+                        'Tap a month you already paid outside the app. For payments from now on, add a transaction and pick this loan under "Long term loan"; do not tick those here too.',
+                        style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
+                  ),
+                  for (final LoanInstalment i in shown) _instalmentRow(i, today, money, next?.number == i.number),
+                  if (schedule.length > shown.length)
+                    TextButton(
+                        onPressed: () => setState(() => _showAll = true),
+                        child: Text('Show all ${schedule.length} instalments')),
+                ]),
+              ),
             ],
-            const SizedBox(height: 16),
-            FilledButton(onPressed: _save, child: const Text('Save')),
+
+            const SizedBox(height: 4),
+            FilledButton(
+              onPressed: _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _instalmentRow(LoanInstalment i, DateTime today, String Function(double) money, bool isNext) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final bool paid = _paid.contains(i.number);
+    final bool overdue = !paid && i.dueDate.isBefore(DateTime(today.year, today.month, today.day));
+    final Color accent = paid ? Colors.green.shade600 : (overdue ? cs.error : cs.primary);
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => setState(() {
+        if (paid) {
+          _paid.remove(i.number);
+        } else {
+          _paid.add(i.number);
+        }
+      }),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: isNext ? cs.primary.withOpacity(0.08) : null,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: paid ? accent : accent.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: paid
+                ? const Icon(Icons.check, size: 18, color: Colors.white)
+                : Text('${i.number}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accent)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_date(i.dueDate),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      decoration: paid ? TextDecoration.lineThrough : null,
+                      color: paid ? cs.onSurface.withOpacity(0.5) : null)),
+              Text('EMI ${money(i.emi)} + GST ${money(i.gstOnInterest)}',
+                  style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
+            ]),
+          ),
+          Text(money(i.totalDue), style: const TextStyle(fontWeight: FontWeight.w700)),
+          if (overdue) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.error_outline, size: 18, color: cs.error),
+          ],
+        ]),
       ),
     );
   }

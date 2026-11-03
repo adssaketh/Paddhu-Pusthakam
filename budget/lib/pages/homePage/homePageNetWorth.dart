@@ -6,6 +6,7 @@ import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/netWorthExtras.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
@@ -77,15 +78,23 @@ class HomePageNetWorth extends StatelessWidget {
                         currencyKey: Provider.of<AllWallets>(context)
                             .indexedByPk[appStateSettings["selectedWalletPk"]]
                             ?.currency,
-                        totalWithCountStream:
-                            database.watchTotalWithCountOfWallet(
-                          isIncome: null,
-                          allWallets: Provider.of<AllWallets>(context),
-                          followCustomPeriodCycle: true,
-                          cycleSettingsExtension: "NetWorth",
-                          searchFilters:
-                              SearchFilters(walletPks: walletPks ?? []),
-                        ),
+                        totalWithCountStream: database
+                            .watchTotalWithCountOfWallet(
+                              isIncome: null,
+                              allWallets: Provider.of<AllWallets>(context),
+                              followCustomPeriodCycle: true,
+                              cycleSettingsExtension: "NetWorth",
+                              searchFilters:
+                                  SearchFilters(walletPks: walletPks ?? []),
+                            )
+                            .asyncMap((TotalWithCount? t) async {
+                          if (t == null) return t;
+                          // loans owed / fixed deposits, when switched on
+                          final double extra = await netWorthAdjustment(
+                              Provider.of<AllWallets>(context, listen: false));
+                          return TotalWithCount(
+                              total: t.total + extra, count: t.count);
+                        }),
                         // getTextColor: (amount) => amount == 0
                         //     ? getColor(context, "black")
                         //     : amount > 0
@@ -262,11 +271,58 @@ Future openNetWorthSettings(BuildContext context) {
           (getPlatform(ignoreEmulation: true) == PlatformOS.isAndroid
               ? " " + "and-applies-to-widget".tr()
               : ""),
-      child: WalletPickerPeriodCycle(
-        allWalletsSettingKey: "netWorthAllWallets",
-        cycleSettingsExtension: "NetWorth",
-        homePageWidgetDisplay: HomePageWidgetDisplay.NetWorth,
+      child: Column(
+        children: [
+          WalletPickerPeriodCycle(
+            allWalletsSettingKey: "netWorthAllWallets",
+            cycleSettingsExtension: "NetWorth",
+            homePageWidgetDisplay: HomePageWidgetDisplay.NetWorth,
+          ),
+          const NetWorthExtrasSwitches(),
+        ],
       ),
     ),
   );
+}
+
+/// Switches for counting loans (what you still owe) and fixed deposits (their value) in the net worth.
+class NetWorthExtrasSwitches extends StatefulWidget {
+  const NetWorthExtrasSwitches({super.key});
+
+  @override
+  State<NetWorthExtrasSwitches> createState() => _NetWorthExtrasSwitchesState();
+}
+
+class _NetWorthExtrasSwitchesState extends State<NetWorthExtrasSwitches> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text("Include loans"),
+          subtitle: Text(
+              "Takes off only the balance still left to pay: remaining loan amount, remaining interest and the GST on it. Only for the all-time period."),
+          value: appStateSettings["netWorthIncludeLoans"] == true,
+          onChanged: (value) async {
+            await updateSettings("netWorthIncludeLoans", value,
+                updateGlobalState: false, pagesNeedingRefresh: [0]);
+            setState(() {});
+          },
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text("Include fixed deposits"),
+          subtitle: Text(
+              "Adds what your open fixed deposits are worth today. Only for the all-time period."),
+          value: appStateSettings["netWorthIncludeFds"] == true,
+          onChanged: (value) async {
+            await updateSettings("netWorthIncludeFds", value,
+                updateGlobalState: false, pagesNeedingRefresh: [0]);
+            setState(() {});
+          },
+        ),
+      ],
+    );
+  }
 }

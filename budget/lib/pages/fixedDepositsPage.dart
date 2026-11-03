@@ -8,6 +8,7 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/fixedDepositStore.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/widgets/financeUi.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,6 +25,8 @@ class FixedDepositsPage extends StatefulWidget {
 }
 
 class _FixedDepositsPageState extends State<FixedDepositsPage> {
+  bool _showClosed = false;
+
   Future<void> _open([FixedDeposit? fd]) async {
     await pushRoute(context, FixedDepositFormPage(deposit: fd));
     if (mounted) setState(() {});
@@ -32,6 +35,7 @@ class _FixedDepositsPageState extends State<FixedDepositsPage> {
   @override
   Widget build(BuildContext context) {
     final AllWallets allWallets = Provider.of<AllWallets>(context);
+    final ColorScheme cs = Theme.of(context).colorScheme;
     String money(double v) => convertToMoney(allWallets, v);
     final DateTime today = DateTime.now();
     final List<FixedDeposit> all = loadFixedDeposits();
@@ -45,81 +49,86 @@ class _FixedDepositsPageState extends State<FixedDepositsPage> {
       value += currentValue(fd, today);
       atMaturity += maturityValue(fd);
     }
+    final FixedDeposit? next = open.isEmpty ? null : open.first;
 
     final Map<String, List<FixedDeposit>> byBank = {};
     for (final FixedDeposit fd in open) {
       byBank.putIfAbsent(fd.bank, () => []).add(fd);
     }
 
-    Widget tile(FixedDeposit fd) {
-      final int days = daysToMaturity(fd, today);
-      final String when = days > 0
-          ? 'matures ${_date(fd.maturityDate)} · in $days day${days == 1 ? '' : 's'}'
-          : 'matured ${_date(fd.maturityDate)}';
-      return ListTile(
-        onTap: () => _open(fd),
-        title: Text(
-            '${money(fd.principal)} at ${fd.ratePct}%${fd.fdNumber.isEmpty ? '' : '  ·  ••${fd.fdNumber.length > 4 ? fd.fdNumber.substring(fd.fdNumber.length - 4) : fd.fdNumber}'}'),
-        subtitle: Text(
-            '$when\nNow ${money(currentValue(fd, today))} · at maturity ${money(maturityValue(fd))}'
-            '${fd.fromSms ? '\nAdded from SMS: tap to check the details' : ''}'),
-        isThreeLine: true,
-        trailing: days <= 0 && !fd.closed
-            ? const Icon(Icons.notifications_active_outlined)
-            : null,
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Fixed deposits')),
-      floatingActionButton: FloatingActionButton(
+      appBar: AppBar(title: const Text('Fixed deposits'), centerTitle: false),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _open(),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add deposit'),
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 90),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(children: [
-                _line('Invested', money(invested)),
-                _line('Worth today', money(value), bold: true),
-                _line('Interest earned so far', money(value - invested)),
-                _line('Total at maturity', money(atMaturity)),
-              ]),
+            FinHero(
+              icon: Icons.savings_outlined,
+              label: 'Worth today',
+              amount: money(value),
+              caption: open.isEmpty
+                  ? 'No open deposits'
+                  : '${open.length} open deposit${open.length == 1 ? '' : 's'} in ${byBank.length} bank${byBank.length == 1 ? '' : 's'}',
+              progress: atMaturity <= invested ? null : ((value - invested) / (atMaturity - invested)),
+              progressLeft: open.isEmpty ? null : 'Interest earned ${money(value - invested)}',
+              progressRight: open.isEmpty ? null : 'of ${money(atMaturity - invested)}',
+              pills: [
+                FinPill('Invested ${money(invested)}', icon: Icons.south_west, onHero: true),
+                FinPill('At maturity ${money(atMaturity)}', icon: Icons.flag_outlined, onHero: true),
+                if (next != null)
+                  FinPill(
+                      daysToMaturity(next, today) > 0
+                          ? 'Next in ${daysToMaturity(next, today)} days'
+                          : 'Matured: check ${next.bank}',
+                      icon: Icons.notifications_none,
+                      onHero: true),
+              ],
             ),
             if (open.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                    'No fixed deposits yet. Tap + to add one. Deposits booked from now on are added automatically when Ping sees the bank SMS.'),
-              ),
-            for (final MapEntry<String, List<FixedDeposit>> e in byBank.entries) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(children: [
-                  Expanded(
-                      child: Text(e.key,
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold))),
-                  Text(money(e.value.fold(0.0, (double a, FixedDeposit f) => a + currentValue(f, today))),
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+              FinCard(
+                child: Column(children: [
+                  Icon(Icons.savings_outlined, size: 40, color: cs.primary),
+                  const SizedBox(height: 10),
+                  const Text('No fixed deposits yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text(
+                      'Tap "Add deposit". Deposits booked from now on are added automatically when Ping sees the bank SMS.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: cs.onSurface.withOpacity(0.65))),
                 ]),
               ),
-              for (final FixedDeposit fd in e.value) tile(fd),
-              const Divider(),
+            for (final MapEntry<String, List<FixedDeposit>> e in byBank.entries) ...[
+              FinSectionTitle(e.key,
+                  trailing: Text(
+                      money(e.value.fold(0.0, (double a, FixedDeposit f) => a + currentValue(f, today))),
+                      style: const TextStyle(fontWeight: FontWeight.w800))),
+              for (final FixedDeposit fd in e.value) _card(fd, today, money),
             ],
             if (closed.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text('Closed', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              for (final FixedDeposit fd in closed)
-                ListTile(
-                  onTap: () => _open(fd),
-                  title: Text('${fd.bank} · ${money(fd.principal)}'),
-                  subtitle: Text('${_date(fd.startDate)} to ${_date(fd.maturityDate)}'),
-                ),
+              FinSectionTitle('Closed (${closed.length})',
+                  trailing: TextButton(
+                      onPressed: () => setState(() => _showClosed = !_showClosed),
+                      child: Text(_showClosed ? 'Hide' : 'Show'))),
+              if (_showClosed)
+                for (final FixedDeposit fd in closed)
+                  FinCard(
+                    onTap: () => _open(fd),
+                    child: Row(children: [
+                      FinAvatar(fd.bank, size: 36),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('${fd.bank} · ${money(fd.principal)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text('${_date(fd.startDate)} to ${_date(fd.maturityDate)}',
+                            style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
+                      ])),
+                    ]),
+                  ),
             ],
           ],
         ),
@@ -127,13 +136,58 @@ class _FixedDepositsPageState extends State<FixedDepositsPage> {
     );
   }
 
-  Widget _line(String label, String value, {bool bold = false}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(children: [
-          Expanded(child: Text(label)),
-          Text(value, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+  Widget _card(FixedDeposit fd, DateTime today, String Function(double) money) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final int days = daysToMaturity(fd, today);
+    final int total = fd.maturityDate.difference(fd.startDate).inDays;
+    final int gone = today.difference(fd.startDate).inDays;
+    final double progress = total <= 0 ? 1 : (gone / total).clamp(0.0, 1.0).toDouble();
+    final Color accent = finColorFor(fd.bank);
+    final String last4 = fd.fdNumber.isEmpty
+        ? ''
+        : ' ••${fd.fdNumber.length > 4 ? fd.fdNumber.substring(fd.fdNumber.length - 4) : fd.fdNumber}';
+    return FinCard(
+      onTap: () => _open(fd),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          FinAvatar(fd.bank),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${money(fd.principal)}$last4',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Text('${fd.ratePct}% · ${kFdCompoundingNames[fd.compounding] ?? ''}',
+                  style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
+            ]),
+          ),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(money(currentValue(fd, today)), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            Text('worth today', style: TextStyle(fontSize: 11.5, color: cs.onSurface.withOpacity(0.55))),
+          ]),
         ]),
-      );
+        const SizedBox(height: 14),
+        FinProgress(progress, color: accent),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+              child: Text('Matures ${_date(fd.maturityDate)}',
+                  style: TextStyle(fontSize: 12.5, color: cs.onSurface.withOpacity(0.7)))),
+          FinPill(days > 0 ? '$days day${days == 1 ? '' : 's'} left' : 'Matured',
+              color: days > 0 ? accent : Colors.orange.shade800),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: FinStat('Interest so far', money(accruedInterest(fd, today)))),
+          Expanded(child: FinStat('At maturity', money(maturityValue(fd)), bold: true)),
+        ]),
+        if (fd.fromSms)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: FinPill('Added from SMS · tap to check', icon: Icons.sms_outlined, color: Colors.orange.shade800),
+          ),
+      ]),
+    );
+  }
 }
 
 class FixedDepositFormPage extends StatefulWidget {
@@ -315,105 +369,151 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
     final AllWallets allWallets = Provider.of<AllWallets>(context);
     final FixedDeposit? preview = _build();
     final List<String> banks = {for (final FixedDeposit f in loadFixedDeposits()) f.bank}.toList();
+    String money(double v) => convertToMoney(allWallets, v);
+    final DateTime today = DateTime.now();
 
-    Widget field(String label, TextEditingController c, {bool text = false, String? suffix}) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: TextField(
-            controller: c,
-            keyboardType: text ? TextInputType.text : const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-                labelText: label, suffixText: suffix, border: const OutlineInputBorder()),
-            onChanged: (_) => setState(() {}),
+    Widget field(String label, TextEditingController c, {bool text = false, String? suffix}) => TextField(
+          controller: c,
+          keyboardType: text ? TextInputType.text : const TextInputType.numberWithOptions(decimal: true),
+          decoration: finInput(context, label, suffix: suffix),
+          onChanged: (_) => setState(() {}),
+        );
+    Widget gap(Widget w) => Padding(padding: const EdgeInsets.only(bottom: 12), child: w);
+
+    Widget dateTile(String label, DateTime d, VoidCallback onTap) => InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: InputDecorator(
+            decoration: finInput(context, label),
+            child: Row(children: [
+              const Icon(Icons.event, size: 18),
+              const SizedBox(width: 8),
+              Text(_date(d), style: const TextStyle(fontWeight: FontWeight.w600)),
+            ]),
           ),
         );
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.deposit == null ? 'Add fixed deposit' : 'Fixed deposit')),
+      appBar: AppBar(title: Text(widget.deposit == null ? 'New fixed deposit' : 'Fixed deposit'), centerTitle: false),
       body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(16), children: [
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+          FinHero(
+            icon: Icons.savings_outlined,
+            label: _bank.text.trim().isEmpty ? 'At maturity' : '${_bank.text.trim()} · at maturity',
+            amount: preview == null ? '—' : money(maturityValue(preview)),
+            caption: preview == null
+                ? 'Fill in the details below'
+                : 'Interest ${money(interestAtMaturity(preview))} · worth today ${money(currentValue(preview, today))}',
+            pills: [
+              if (preview != null) FinPill('${_n(preview.ratePct)}% a year', icon: Icons.percent, onHero: true),
+              if (preview != null)
+                FinPill('${preview.maturityDate.difference(preview.startDate).inDays} days',
+                    icon: Icons.timelapse, onHero: true),
+            ],
+          ),
           if (widget.deposit?.fromSms == true)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Text('Added automatically from a bank SMS. Check the details and save to confirm.'),
-            ),
-          field('Bank', _bank, text: true),
-          if (banks.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Wrap(spacing: 8, children: [
-                for (final String b in banks)
-                  ActionChip(label: Text(b), onPressed: () => setState(() => _bank.text = b)),
+            FinCard(
+              child: Row(children: [
+                Icon(Icons.sms_outlined, color: Colors.orange.shade800),
+                const SizedBox(width: 12),
+                const Expanded(
+                    child: Text('Added automatically from a bank SMS. Check the details and save to confirm.')),
               ]),
             ),
-          field('FD number / account (optional)', _number, text: true),
-          field('Amount deposited', _principal),
-          field('Interest rate (per year)', _rate, suffix: '%'),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: OutlinedButton(
-              onPressed: () async {
-                final DateTime? p = await _pick(_start);
-                if (p != null) setState(() => _start = p);
-              },
-              child: Text('Start date: ${_date(_start)}'),
+          const FinSectionTitle('Deposit'),
+          FinCard(
+            child: Column(children: [
+              gap(field('Bank', _bank, text: true)),
+              if (banks.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(spacing: 8, runSpacing: 4, children: [
+                      for (final String b in banks)
+                        ActionChip(label: Text(b), onPressed: () => setState(() => _bank.text = b)),
+                    ]),
+                  ),
+                ),
+              gap(field('FD number / account (optional)', _number, text: true)),
+              Row(children: [
+                Expanded(child: field('Amount', _principal)),
+                const SizedBox(width: 12),
+                Expanded(child: field('Interest', _rate, suffix: '% a year')),
+              ]),
+            ]),
+          ),
+          const FinSectionTitle('Dates and interest'),
+          FinCard(
+            child: Column(children: [
+              gap(Row(children: [
+                Expanded(
+                    child: dateTile('Start', _start, () async {
+                  final DateTime? p = await _pick(_start);
+                  if (p != null) setState(() => _start = p);
+                })),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: dateTile('Maturity', _maturity, () async {
+                  final DateTime? p = await _pick(_maturity);
+                  if (p != null) setState(() => _maturity = p);
+                })),
+              ])),
+              gap(DropdownButtonFormField<int>(
+                value: _compounding,
+                isExpanded: true,
+                decoration: finInput(context, 'Interest added'),
+                items: [
+                  for (final MapEntry<int, String> e in kFdCompoundingNames.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _compounding = v);
+                },
+              )),
+              field('Maturity amount from the bank (optional)', _maturityAmount),
+            ]),
+          ),
+          const FinSectionTitle('Account'),
+          FinCard(
+            child: Column(children: [
+              gap(DropdownButtonFormField<String>(
+                value: allWallets.indexedByPk.containsKey(_walletPk) ? _walletPk : null,
+                isExpanded: true,
+                decoration: finInput(context, 'Account'),
+                items: [
+                  for (final TransactionWallet w in allWallets.list)
+                    DropdownMenuItem(value: w.walletPk, child: Text(w.name, overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _walletPk = v);
+                },
+              )),
+              gap(field('Note (optional)', _note, text: true)),
+              if (widget.deposit == null)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Take the amount out of the account'),
+                  subtitle: const Text('Adds an expense for the deposit. Turn off if the bank SMS already recorded it.'),
+                  value: _deduct,
+                  onChanged: (v) => setState(() => _deduct = v),
+                ),
+            ]),
+          ),
+          FilledButton(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
+            child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: OutlinedButton(
-              onPressed: () async {
-                final DateTime? p = await _pick(_maturity);
-                if (p != null) setState(() => _maturity = p);
-              },
-              child: Text('Maturity date: ${_date(_maturity)}'),
-            ),
-          ),
-          DropdownButtonFormField<int>(
-            value: _compounding,
-            decoration: const InputDecoration(labelText: 'Interest added', border: OutlineInputBorder()),
-            items: [
-              for (final MapEntry<int, String> e in kFdCompoundingNames.entries)
-                DropdownMenuItem(value: e.key, child: Text(e.value)),
-            ],
-            onChanged: (v) {
-              if (v != null) setState(() => _compounding = v);
-            },
-          ),
-          const SizedBox(height: 10),
-          field('Maturity amount from the bank (optional)', _maturityAmount),
-          DropdownButtonFormField<String>(
-            value: allWallets.indexedByPk.containsKey(_walletPk) ? _walletPk : null,
-            decoration: const InputDecoration(labelText: 'Account', border: OutlineInputBorder()),
-            items: [
-              for (final TransactionWallet w in allWallets.list)
-                DropdownMenuItem(value: w.walletPk, child: Text(w.name)),
-            ],
-            onChanged: (v) {
-              if (v != null) setState(() => _walletPk = v);
-            },
-          ),
-          const SizedBox(height: 10),
-          field('Note (optional)', _note, text: true),
-          if (widget.deposit == null)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Take the amount out of the account'),
-              subtitle: const Text('Adds an expense for the deposit. Turn off if the bank SMS already recorded it.'),
-              value: _deduct,
-              onChanged: (v) => setState(() => _deduct = v),
-            ),
-          if (preview != null) ...[
-            const Divider(),
-            Text('At maturity: ${convertToMoney(allWallets, maturityValue(preview))}  '
-                '(interest ${convertToMoney(allWallets, interestAtMaturity(preview))})'),
-            Text('Worth today: ${convertToMoney(allWallets, currentValue(preview, DateTime.now()))}'),
-          ],
-          const SizedBox(height: 16),
-          FilledButton(onPressed: _save, child: const Text('Save')),
           if (widget.deposit != null && !widget.deposit!.closed)
             TextButton(onPressed: _markMatured, child: const Text('Mark as matured / closed')),
           if (widget.deposit != null)
-            TextButton(onPressed: _delete, child: const Text('Delete')),
+            TextButton(
+                onPressed: _delete,
+                child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error))),
         ]),
       ),
     );
