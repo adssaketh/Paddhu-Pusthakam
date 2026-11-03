@@ -9,6 +9,7 @@ import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/struct/languageMap.dart';
 import 'package:budget/struct/initializeBiometrics.dart';
 import 'package:budget/widgets/util/appLinks.dart';
+import 'package:budget/widgets/util/handlePingInbox.dart';
 import 'package:budget/widgets/util/onAppResume.dart';
 import 'package:budget/widgets/util/watchForDayChange.dart';
 import 'package:budget/widgets/watchAllWallets.dart';
@@ -71,6 +72,8 @@ void main() async {
         ),
       ),
     );
+    // Bank SMS that Ping handed over while the app was closed (a few seconds in, once the screen is up)
+    handlePingInbox(delay: const Duration(seconds: 3));
   });
 }
 
@@ -150,6 +153,8 @@ class App extends StatelessWidget {
           updateGlobalAppLifecycleState: true,
           onAppResume: () async {
             await setHighRefreshRate();
+            // Bank SMS that Ping handed over while the app was in the background
+            handlePingInbox();
           },
           child: InitializeBiometrics(
             child: InitializeNotificationService(

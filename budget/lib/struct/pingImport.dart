@@ -38,6 +38,7 @@ class PingImportRow {
     required this.walletName,
     required this.closed,
     required this.tickByDefault,
+    this.knownAccount = false,
   });
 
   final String smsId;
@@ -66,6 +67,10 @@ class PingImportRow {
   final String walletName;
   final bool closed;
   final bool tickByDefault;
+
+  /// true when the account / card is in your own list (knownAccounts.dart). Only those are saved
+  /// automatically, see autoSmsPolicy.dart.
+  final bool knownAccount;
 
   /// Text stored in the transaction's note: the account, then the duplicate marker.
   String get note {
@@ -185,6 +190,7 @@ PingImport parsePingExport(String jsonText) {
       // Only your own list decides: old Federal UPI SMS carry no account number, so they are not
       // marked closed (the active Jupiter account may send the same format).
       closed: known?.closed ?? false,
+      knownAccount: known != null,
       tickByDefault: (known?.tickByDefault ?? true) &&
           !(parsed.isExpense && _cardBillDebitRe.hasMatch(body)),
     ));

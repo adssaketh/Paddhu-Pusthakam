@@ -4,8 +4,11 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
+import 'package:budget/struct/autoSmsPolicy.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/pingImport.dart';
+import 'package:budget/struct/pingInbox.dart';
+import 'package:budget/struct/pingSave.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
@@ -23,12 +26,19 @@ import 'package:provider/provider.dart';
 /// Nothing is saved until you press Save: tick what you want, change a row with the edit button.
 ///
 /// Opened by the share sheet (the shared file is already in the app's cache), or with
-/// [pickFile] = true to choose a Ping export file yourself.
+/// [pickFile] = true to choose a Ping export file yourself, or with [reviewQueue] = true to look at the
+/// messages Ping sent by itself that Paddhu Pusthakam was not sure about (see pingInbox.dart).
 class ImportFromPingPage extends StatefulWidget {
   const ImportFromPingPage(
-      {this.pickFile = false, this.autoOpenSingle = false, super.key});
+      {this.pickFile = false,
+      this.autoOpenSingle = false,
+      this.reviewQueue = false,
+      super.key});
 
   final bool pickFile;
+
+  /// Show the messages waiting in the review list instead of a shared file.
+  final bool reviewQueue;
 
   /// Ping's "Add to Paddhu" button sends one SMS: open the Add Transaction page for it straight away.
   final bool autoOpenSingle;
@@ -63,6 +73,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
   }
 
   Future<String?> _readFileText() async {
+    if (widget.reviewQueue) return await readReviewQueueAsExport();
     String? path;
     if (widget.pickFile) {
       final FilePickerResult? result = await FilePicker.platform.pickFiles();
@@ -80,24 +91,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
   }
 
   /// [ids, keys] found in the notes of transactions that came from Ping.
-  Future<List<Set<String>>> _existingPingMarkers() async {
-    final rows = await (database.select(database.transactions)
-          ..where((t) => t.note.like('%$kPingNoteMarker%')))
-        .get();
-    final RegExp idRe = RegExp(r'Ping SMS #([\w-]+)');
-    final RegExp keyRe = RegExp(r'Ping SMS key ([\w-]+)');
-    final Set<String> ids = {};
-    final Set<String> keys = {};
-    for (final t in rows) {
-      for (final m in idRe.allMatches(t.note)) {
-        ids.add(m.group(1)!);
-      }
-      for (final m in keyRe.allMatches(t.note)) {
-        keys.add(m.group(1)!);
-      }
-    }
-    return [ids, keys];
-  }
+  Future<List<Set<String>>> _existingPingMarkers() => existingPingMarkers();
 
   Future<void> _load() async {
     try {
@@ -110,13 +104,25 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
       final List<Set<String>> existing = await _existingPingMarkers();
       savedIds = existing[0];
       savedKeys = existing[1];
+      if (widget.reviewQueue) {
+        // Saved some other way since (for example with the Add to Paddhu button): no longer waiting.
+        final List<String> done =
+            parsed.rows.where(_isSaved).map((r) => r.smsId).toList();
+        if (done.isNotEmpty) await removeFromReviewQueue(done);
+      }
       final Set<String> toTick = {
         for (final r in parsed.rows)
           if (!_isSaved(r) && r.tickByDefault) r.smsId,
       };
       if (!mounted) return;
       setState(() {
-        data = parsed;
+        data = widget.reviewQueue
+            ? PingImport(
+                rows: parsed.rows.where((r) => !_isSaved(r)).toList(),
+                skipped: parsed.skipped,
+                from: parsed.from,
+                to: parsed.to)
+            : parsed;
         ticked = toTick;
         loading = false;
       });
@@ -141,59 +147,6 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
   // Saving
   // ---------------------------------------------------------------------------------------------
 
-  /// Category for a row: the suggested default one when it exists and matches the direction,
-  /// otherwise an "Uncategorized" category (created once) you can sort out later.
-  Future<String> _categoryPkFor(
-      PingImportRow row, Map<String, String> cache) async {
-    final String? suggested = row.categoryPk;
-    if (suggested != null) {
-      final TransactionCategory? c =
-          await database.getCategoryInstanceOrNull(suggested);
-      if (c != null && c.income == !row.isExpense) return c.categoryPk;
-    }
-    final bool income = !row.isExpense;
-    final String cacheKey = income ? 'income' : 'expense';
-    final String? cached = cache[cacheKey];
-    if (cached != null) return cached;
-
-    final String name = income ? 'Uncategorized income' : 'Uncategorized';
-    Future<String?> find() async {
-      final List<TransactionCategory> all =
-          await database.getAllCategories(allCategories: true, limit: 1000);
-      for (final c in all) {
-        if (c.income == income &&
-            c.name.trim().toLowerCase() == name.toLowerCase()) {
-          return c.categoryPk;
-        }
-      }
-      return null;
-    }
-
-    String? pk = await find();
-    if (pk == null) {
-      final int count =
-          (await database.getAllCategories(allCategories: true, limit: 1000))
-              .length;
-      await database.createOrUpdateCategory(
-        TransactionCategory(
-          categoryPk: "-1",
-          name: name,
-          colour: toHexString(Colors.grey),
-          iconName: income ? "coin.png" : "bills.png",
-          dateCreated: DateTime.now(),
-          dateTimeModified: null,
-          order: count,
-          income: income,
-        ),
-        insert: true,
-      );
-      pk = await find();
-    }
-    final String result = pk ?? "-1";
-    cache[cacheKey] = result;
-    return result;
-  }
-
   Future<void> _save() async {
     final PingImport? d = data;
     if (d == null || saving) return;
@@ -207,63 +160,29 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
       progress = 0;
     });
     try {
-      final List<TransactionWallet> wallets = await database.getAllWallets();
-      final Map<String, String> walletPkByName = {
-        for (final w in wallets) w.name.trim().toLowerCase(): w.walletPk,
-      };
-      final TransactionWallet base = wallets.firstWhere(
-        (w) => w.walletPk == appStateSettings["selectedWalletPk"],
-        orElse: () => wallets.first,
-      );
-      int nextOrder = wallets.length;
-      final Map<String, String> categoryCache = {};
+      final PingSaver saver = PingSaver();
+      if (!await saver.init()) {
+        throw Exception('Create a wallet in Paddhu Pusthakam first.');
+      }
       int saved = 0;
+      final List<String> savedNow = [];
 
-      for (final PingImportRow row in rows) {
-        final String walletName = row.walletName.trim();
-        String? walletPk = walletPkByName[walletName.toLowerCase()];
-        if (walletPk == null) {
-          await database.createOrUpdateWallet(
-            TransactionWallet(
-              walletPk: "-1",
-              name: walletName,
-              dateCreated: DateTime.now(),
-              dateTimeModified: null,
-              order: nextOrder++,
-              currency: base.currency,
-              currencyFormat: base.currencyFormat,
-              decimals: base.decimals,
-            ),
-            insert: true,
-          );
-          walletPk =
-              (await database.getWalletInstanceGivenName(walletName)).walletPk;
-          walletPkByName[walletName.toLowerCase()] = walletPk;
+      try {
+        for (final PingImportRow row in rows) {
+          await saver.save(row);
+          saved++;
+          savedNow.add(row.smsId);
+          savedIds.add(row.smsId);
+          savedKeys.add(row.contentKey);
+          ticked.remove(row.smsId);
+          progress = saved;
+          if (saved % 25 == 0 && mounted) setState(() {});
         }
-
-        final String categoryPk = await _categoryPkFor(row, categoryCache);
-        await database.createOrUpdateTransaction(
-          Transaction(
-            transactionPk: "-1",
-            name: row.title,
-            amount: row.isExpense ? -row.amount.abs() : row.amount.abs(),
-            note: row.note,
-            categoryFk: categoryPk,
-            walletFk: walletPk,
-            dateCreated: row.date,
-            dateTimeModified: null,
-            income: !row.isExpense,
-            paid: true,
-            skipPaid: true,
-          ),
-          insert: true,
-        );
-        saved++;
-        savedIds.add(row.smsId);
-        savedKeys.add(row.contentKey);
-        ticked.remove(row.smsId);
-        progress = saved;
-        if (saved % 25 == 0 && mounted) setState(() {});
+      } finally {
+        // whatever was saved no longer needs reviewing, even if a later row failed
+        if (widget.reviewQueue && savedNow.isNotEmpty) {
+          await removeFromReviewQueue(savedNow);
+        }
       }
 
       if (!mounted) return;
@@ -326,10 +245,39 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
       savedKeys = existing[1];
       ticked.removeWhere((id) => savedIds.contains(id));
     });
+    if (widget.reviewQueue && _isSaved(row)) {
+      await removeFromReviewQueue([row.smsId]);
+    }
     // The single SMS from the "Add to Paddhu" button is done once it is saved: leave this screen.
     if (widget.autoOpenSingle && _isSaved(row) && mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  /// Review list only: forget the messages that are not ticked (not saved, not wanted), so they stop coming back.
+  Future<void> _dismissUnticked() async {
+    final PingImport? d = data;
+    if (d == null || saving) return;
+    final List<PingImportRow> drop =
+        d.rows.where((r) => !_isSaved(r) && !ticked.contains(r.smsId)).toList();
+    if (drop.isEmpty) return;
+    await removeFromReviewQueue(drop.map((r) => r.smsId));
+    if (!mounted) return;
+    final Set<String> dropped = drop.map((r) => r.smsId).toSet();
+    setState(() {
+      data = PingImport(
+        rows: d.rows.where((r) => !dropped.contains(r.smsId)).toList(),
+        skipped: d.skipped,
+        from: d.from,
+        to: d.to,
+      );
+    });
+    openSnackbar(SnackbarMessage(
+      title: "Removed ${drop.length} from the review list",
+      icon: appStateSettings["outlinedIcons"]
+          ? Icons.delete_outline
+          : Icons.delete_rounded,
+    ));
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -351,7 +299,9 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
         Provider.of<AllWallets>(context, listen: false), row.amount);
     final String detail = already
         ? 'Already in Paddhu Pusthakam'
-        : '${row.categoryLabel.isEmpty ? 'No category suggested' : row.categoryLabel}  →  ${row.walletName}';
+        : widget.reviewQueue
+            ? 'Not added automatically: ${decideAutoSave(row).reason}'
+            : '${row.categoryLabel.isEmpty ? 'No category suggested' : row.categoryLabel}  →  ${row.walletName}';
 
     void toggle() {
       if (already || saving) return;
@@ -391,7 +341,10 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
                     fontSize: 12,
                     maxLines: 1,
                   ),
-                  TextFont(text: detail, fontSize: 12, maxLines: 1),
+                  TextFont(
+                      text: detail,
+                      fontSize: 12,
+                      maxLines: widget.reviewQueue ? 3 : 1),
                 ],
               ),
             ),
@@ -438,10 +391,13 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
       Padding(
         padding: const EdgeInsetsDirectional.only(start: 20, end: 20, bottom: 6),
         child: TextFont(
-          text:
-              '${d.rows.length} transactions found${d.from != null && d.to != null ? ' (${_formatDate(d.from!).substring(0, 10)} to ${_formatDate(d.to!).substring(0, 10)})' : ''}. '
-              '$alreadyCount already in Paddhu Pusthakam, $newCount new, $tickedCount ticked. '
-              '${d.skipped} messages skipped (not a payment, or a card bill acknowledgement).',
+          text: widget.reviewQueue
+              ? '${d.rows.length} bank messages from Ping were not added automatically because Paddhu Pusthakam was not sure about them '
+                  '(a transfer to a person, an account that is not in your list...). '
+                  '$tickedCount ticked. Save the ones that are fine, edit the others with the pencil, or remove what you do not need.'
+              : '${d.rows.length} transactions found${d.from != null && d.to != null ? ' (${_formatDate(d.from!).substring(0, 10)} to ${_formatDate(d.to!).substring(0, 10)})' : ''}. '
+                  '$alreadyCount already in Paddhu Pusthakam, $newCount new, $tickedCount ticked. '
+                  '${d.skipped} messages skipped (not a payment, or a card bill acknowledgement).',
           fontSize: 14,
           maxLines: 10,
         ),
@@ -496,6 +452,17 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
           onTap: _save,
         ),
       ),
+      if (widget.reviewQueue)
+        Padding(
+          padding:
+              const EdgeInsetsDirectional.symmetric(horizontal: 15, vertical: 4),
+          child: Button(
+            label: 'Remove unticked from this list',
+            expandedLayout: true,
+            disabled: saving,
+            onTap: _dismissUnticked,
+          ),
+        ),
     ];
   }
 
@@ -517,14 +484,20 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
     } else if (d == null) {
       widgets.add(Padding(
         padding: const EdgeInsetsDirectional.all(20),
-        child: TextFont(text: 'No file was chosen.', fontSize: 15, maxLines: 3),
+        child: TextFont(
+            text: widget.reviewQueue
+                ? 'Nothing to review. Messages Ping sends that Paddhu Pusthakam is not sure about will show up here.'
+                : 'No file was chosen.',
+            fontSize: 15,
+            maxLines: 4),
       ));
     } else if (d.rows.isEmpty) {
       widgets.add(Padding(
         padding: const EdgeInsetsDirectional.all(20),
         child: TextFont(
-          text:
-              'No importable transactions in this file (${d.skipped} messages skipped).',
+          text: widget.reviewQueue
+              ? 'Nothing left to review.'
+              : 'No importable transactions in this file (${d.skipped} messages skipped).',
           fontSize: 15,
           maxLines: 5,
         ),
@@ -538,7 +511,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
 
     return PageFramework(
       dragDownToDismiss: true,
-      title: "Import from Ping",
+      title: widget.reviewQueue ? "Review Ping messages" : "Import from Ping",
       listWidgets: widgets,
     );
   }

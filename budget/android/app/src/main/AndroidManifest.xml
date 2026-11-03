@@ -88,6 +88,11 @@
                 <data android:mimeType="application/json" />
             </intent-filter>
         </activity>
+        <!-- Ping hands over new bank SMS here while Paddhu Pusthakam is closed (only Ping is accepted, see PingInboxProvider.java) -->
+        <provider
+            android:name=".PingInboxProvider"
+            android:authorities="com.mansaketh.paddhupusthakam.pinginbox"
+            android:exported="true" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>

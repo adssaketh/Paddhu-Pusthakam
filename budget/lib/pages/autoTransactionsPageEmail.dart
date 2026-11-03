@@ -7,6 +7,7 @@ import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
 import 'package:budget/pages/importFromPingPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/pingInbox.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/smartSmsTransactions.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
@@ -288,6 +289,27 @@ class _AutoTransactionsPageNotificationsState
               pushRoute(context, ImportFromPingPage(pickFile: true));
             },
           ),
+        ),
+        // Bank SMS that Ping sent by itself and Paddhu Pusthakam was not sure about
+        FutureBuilder<int>(
+          future: pendingReviewCount(),
+          builder: (context, snapshot) {
+            final int waiting = snapshot.data ?? 0;
+            return Padding(
+              padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: 15, vertical: 8),
+              child: Button(
+                label: waiting > 0
+                    ? "Review Ping messages ($waiting)"
+                    : "Review Ping messages",
+                expandedLayout: true,
+                onTap: () {
+                  pushRoute(
+                      context, const ImportFromPingPage(reviewQueue: true));
+                },
+              ),
+            );
+          },
         ),
         StreamBuilder<List<ScannerTemplate>>(
           stream: database.watchAllScannerTemplates(),
