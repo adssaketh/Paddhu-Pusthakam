@@ -71,6 +71,10 @@ class TextFont extends StatelessWidget {
           ? "DMSans"
           : appStateSettings["font"],
       fontFamilyFallback: ['Inter'],
+      // Google Sans is a variable font: ask for the weight on its weight axis
+      fontVariations: appStateSettings["font"] == "GoogleSans"
+          ? [FontVariation('wght', fontWeight.value.toDouble())]
+          : null,
       color: finalTextColor,
       decoration: TextDecoration.underline,
       decorationStyle: TextDecorationStyle.double,

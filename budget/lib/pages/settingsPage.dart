@@ -1106,6 +1106,7 @@ void openFontPicker(BuildContext context) {
           "Avenir",
           "DMSans",
           "Metropolis",
+          "GoogleSans",
           // SF Pro removed - users on iOS can just select Platform font
           // Inter is the font family fallback
           "RobotoCondensed",
@@ -1131,6 +1132,8 @@ String fontNameDisplayFilter(String value) {
     return "platform".tr().capitalizeFirst;
   } else if (value == "DMSans") {
     return "DM Sans";
+  } else if (value == "GoogleSans") {
+    return "Google Sans";
   } else if (value == "RobotoCondensed") {
     return "Roboto Condensed";
   } else if (value == "Inconsolata") {

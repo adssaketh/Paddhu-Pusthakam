@@ -10,6 +10,7 @@ import 'package:budget/pages/homePage/homePagePieChart.dart';
 import 'package:budget/pages/homePage/homePageWalletList.dart';
 import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
 import 'package:budget/pages/homePage/homeTransactions.dart';
+import 'package:budget/pages/homePage/homePageLogo.dart';
 import 'package:budget/pages/homePage/homePageUsername.dart';
 import 'package:budget/pages/homePage/homePageBudgets.dart';
 import 'package:budget/pages/homePage/homePageUpcomingTransactions.dart';
@@ -299,7 +300,17 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                         context, null,
                                         isHomePageSpace: true) /
                                     1.34),
-                            child: Container(
+                            child: Stack(
+                              alignment: AlignmentDirectional.bottomStart,
+                              children: [
+                            // The logo sits in the empty space above the greeting
+                            Positioned.fill(
+                              child: Align(
+                                alignment: Alignment(0, -0.45),
+                                child: HomePageLogo(),
+                              ),
+                            ),
+                            Container(
                               // Subtract one (1) here because of the thickness of the wiper above
                               alignment: AlignmentDirectional.bottomStart,
                               padding: EdgeInsetsDirectional.only(
@@ -324,6 +335,8 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                   ),
                                 ],
                               ),
+                            ),
+                              ],
                             ),
                           )
                         : SizedBox(height: 5),
