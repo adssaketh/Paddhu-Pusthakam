@@ -1,11 +1,13 @@
-// Fixed deposits on the Home page, under the accounts: one line per deposit (bank, number, what it is worth
-// today, days to maturity and a thin bar of the time gone). The heading opens the Fixed deposits page.
+// Fixed deposits on the Home page, under the accounts: one row with what they are worth in total. Tap it to
+// see every deposit (bank, number, rate, days left, interest so far); tap a deposit to open it, or the link
+// at the bottom for the full Fixed deposits page.
 
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/fixedDepositsPage.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/fixedDepositStore.dart';
+import 'package:budget/widgets/financeCollapsible.dart';
 import 'package:budget/widgets/financeUi.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -21,6 +23,21 @@ class HomePageFixedDeposits extends StatelessWidget {
     final DateTime today = DateTime.now();
     final List<FixedDeposit> open = loadFixedDeposits().where((e) => !e.closed).toList()
       ..sort((a, b) => a.maturityDate.compareTo(b.maturityDate));
+
+    if (open.isEmpty) {
+      return InkWell(
+        onTap: () => pushRoute(context, const FixedDepositFormPage()),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          child: Row(children: [
+            Icon(Icons.add_circle_outline, color: cs.primary),
+            const SizedBox(width: 12),
+            const Text('Add a fixed deposit', style: TextStyle(fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      );
+    }
+
     double total = 0;
     for (final FixedDeposit fd in open) {
       total += currentValue(fd, today);
@@ -37,77 +54,58 @@ class HomePageFixedDeposits extends StatelessWidget {
       return InkWell(
         onTap: () => pushRoute(context, FixedDepositFormPage(deposit: fd)),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          child: Column(children: [
-            Row(children: [
-              FinAvatar(fd.bank, size: 38),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${fd.bank}$last4',
+          padding: const EdgeInsets.fromLTRB(18, 6, 18, 10),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.onSurface.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                FinAvatar(fd.bank, size: 30),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('${fd.bank}$last4',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                  Text(
-                      days > 0
-                          ? '${fd.ratePct}% · matures in $days day${days == 1 ? '' : 's'}'
-                          : '${fd.ratePct}% · matured, check it',
-                      style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
-                ]),
-              ),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+                ),
                 Text(money(currentValue(fd, today)),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                Text('of ${money(maturityValue(fd))}',
-                    style: TextStyle(fontSize: 11.5, color: cs.onSurface.withOpacity(0.55))),
+                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
               ]),
+              const SizedBox(height: 8),
+              FinProgress(progress, height: 6, color: finColorFor(fd.bank)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: FinStat('Deposited', money(fd.principal))),
+                Expanded(child: FinStat('Interest so far', money(accruedInterest(fd, today)))),
+                Expanded(child: FinStat('At maturity', money(maturityValue(fd)))),
+              ]),
+              const SizedBox(height: 8),
+              Text(
+                  '${fd.ratePct}% · ${days > 0 ? 'matures ${fd.maturityDate.day}/${fd.maturityDate.month}/${fd.maturityDate.year} ($days day${days == 1 ? '' : 's'})' : 'matured, check it'}',
+                  style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
             ]),
-            const SizedBox(height: 8),
-            FinProgress(progress, height: 5, color: finColorFor(fd.bank)),
-          ]),
+          ),
         ),
       );
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        InkWell(
-          onTap: () => pushRoute(context, const FixedDepositsPage()),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 2),
-            child: Row(children: [
-              Expanded(
-                child: Text('FIXED DEPOSITS',
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        letterSpacing: 1.1,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface.withOpacity(0.5))),
-              ),
-              if (open.isNotEmpty)
-                Text(money(total), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right, size: 18, color: cs.onSurface.withOpacity(0.5)),
-            ]),
-          ),
+    return FinCollapsible(
+      settingKey: "homeFdsExpanded",
+      icon: Icons.savings_outlined,
+      title: 'Fixed deposits',
+      subtitle: '${open.length} deposit${open.length == 1 ? '' : 's'} · worth today',
+      total: money(total),
+      details: Column(mainAxisSize: MainAxisSize.min, children: [for (final FixedDeposit fd in open) line(fd)]),
+      footer: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: TextButton(
+          onPressed: () => pushRoute(context, const FixedDepositsPage()),
+          child: const Text('Open the fixed deposits page'),
         ),
-        if (open.isEmpty)
-          InkWell(
-            onTap: () => pushRoute(context, const FixedDepositFormPage()),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              child: Row(children: [
-                Icon(Icons.add_circle_outline, color: cs.primary),
-                const SizedBox(width: 12),
-                const Text('Add a fixed deposit', style: TextStyle(fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          )
-        else
-          for (final FixedDeposit fd in open) line(fd),
-        const SizedBox(height: 6),
-      ],
+      ),
     );
   }
 }

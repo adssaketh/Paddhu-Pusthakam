@@ -16,6 +16,18 @@ Color finColorFor(String name) {
   return HSLColor.fromAHSL(1, (h % 360).toDouble(), 0.5, 0.42).toColor();
 }
 
+/// The text colour on the gradient hero card (dark on a light gradient, white on a dark one).
+class FinHeroScope extends InheritedWidget {
+  const FinHeroScope({Key? key, required this.fg, required Widget child}) : super(key: key, child: child);
+  final Color fg;
+
+  static Color? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<FinHeroScope>()?.fg;
+
+  @override
+  bool updateShouldNotify(FinHeroScope old) => old.fg != fg;
+}
+
 class FinCard extends StatelessWidget {
   const FinCard({Key? key, required this.child, this.padding = const EdgeInsets.all(16), this.onTap})
       : super(key: key);
@@ -66,9 +78,10 @@ class FinPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final Color fg = onHero ? Colors.white : (color ?? cs.onSurface);
+    final Color heroFg = FinHeroScope.maybeOf(context) ?? Colors.white;
+    final Color fg = onHero ? heroFg : (color ?? cs.onSurface);
     final Color bg = onHero
-        ? Colors.white.withOpacity(0.18)
+        ? heroFg.withOpacity(0.16)
         : (color ?? cs.primary).withOpacity(0.12);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -92,13 +105,14 @@ class FinProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
+    final Color heroFg = FinHeroScope.maybeOf(context) ?? Colors.white;
     return ClipRRect(
       borderRadius: BorderRadius.circular(height),
       child: LinearProgressIndicator(
         value: value.isNaN ? 0 : value.clamp(0.0, 1.0).toDouble(),
         minHeight: height,
-        backgroundColor: onHero ? Colors.white.withOpacity(0.22) : (color ?? cs.primary).withOpacity(0.15),
-        valueColor: AlwaysStoppedAnimation<Color>(onHero ? Colors.white : (color ?? cs.primary)),
+        backgroundColor: onHero ? heroFg.withOpacity(0.2) : (color ?? cs.primary).withOpacity(0.15),
+        valueColor: AlwaysStoppedAnimation<Color>(onHero ? heroFg : (color ?? cs.primary)),
       ),
     );
   }
@@ -132,52 +146,59 @@ class FinHero extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final Color a = cs.primary;
     final Color b = Color.lerp(cs.primary, cs.tertiary, 0.6) ?? cs.primary;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-            begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [a, b]),
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [BoxShadow(color: a.withOpacity(0.28), blurRadius: 18, offset: const Offset(0, 8))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          if (icon != null) ...[Icon(icon, color: Colors.white70, size: 18), const SizedBox(width: 8)],
-          Expanded(
-              child: Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600))),
-        ]),
-        const SizedBox(height: 6),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(amount,
-              style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800)),
+    final double lum = (a.computeLuminance() + b.computeLuminance()) / 2;
+    // dark text on a light gradient (dark theme), white on a dark one
+    final Color fg = lum > 0.4 ? const Color(0xFF12141C) : Colors.white;
+    return FinHeroScope(
+      fg: fg,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [a, b]),
+          borderRadius: BorderRadius.circular(26),
+          boxShadow: [BoxShadow(color: a.withOpacity(0.28), blurRadius: 18, offset: const Offset(0, 8))],
         ),
-        if (caption != null)
-          Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(caption!, style: const TextStyle(color: Colors.white70, fontSize: 13))),
-        if (progress != null) ...[
-          const SizedBox(height: 16),
-          FinProgress(progress!, height: 9, onHero: true),
-          if (progressLeft != null || progressRight != null)
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            if (icon != null) ...[Icon(icon, color: fg.withOpacity(0.8), size: 20), const SizedBox(width: 8)],
+            Expanded(
+                child: Text(label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: fg, fontSize: 15, fontWeight: FontWeight.w700))),
+          ]),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(amount, style: TextStyle(color: fg, fontSize: 38, fontWeight: FontWeight.w800)),
+          ),
+          if (caption != null)
             Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Row(children: [
-                Expanded(child: Text(progressLeft ?? '', style: const TextStyle(color: Colors.white, fontSize: 12.5))),
-                Text(progressRight ?? '', style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
-              ]),
-            ),
-        ],
-        if (pills.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Wrap(spacing: 8, runSpacing: 8, children: pills),
-        ],
-      ]),
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(caption!, style: TextStyle(color: fg.withOpacity(0.8), fontSize: 13.5))),
+          if (progress != null) ...[
+            const SizedBox(height: 16),
+            FinProgress(progress!, height: 9, onHero: true),
+            if (progressLeft != null || progressRight != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(children: [
+                  Expanded(
+                      child: Text(progressLeft ?? '',
+                          style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600))),
+                  Text(progressRight ?? '', style: TextStyle(color: fg.withOpacity(0.8), fontSize: 13)),
+                ]),
+              ),
+          ],
+          if (pills.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, runSpacing: 8, children: pills),
+          ],
+        ]),
+      ),
     );
   }
 }

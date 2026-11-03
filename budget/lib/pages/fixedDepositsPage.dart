@@ -399,11 +399,11 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
           FinHero(
             icon: Icons.savings_outlined,
-            label: _bank.text.trim().isEmpty ? 'At maturity' : '${_bank.text.trim()} · at maturity',
+            label: _bank.text.trim().isEmpty ? 'Fixed deposit' : _bank.text.trim(),
             amount: preview == null ? '—' : money(maturityValue(preview)),
             caption: preview == null
                 ? 'Fill in the details below'
-                : 'Interest ${money(interestAtMaturity(preview))} · worth today ${money(currentValue(preview, today))}',
+                : 'At maturity · interest ${money(interestAtMaturity(preview))} · worth today ${money(currentValue(preview, today))}',
             pills: [
               if (preview != null) FinPill('${_n(preview.ratePct)}% a year', icon: Icons.percent, onHero: true),
               if (preview != null)

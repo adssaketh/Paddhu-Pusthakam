@@ -225,9 +225,9 @@ class _LoanTermsPageState extends State<LoanTermsPage> {
             // ---- hero
             FinHero(
               icon: Icons.account_balance_outlined,
-              label: _name.text.trim().isEmpty ? 'Loan outstanding' : '${_name.text.trim()} · outstanding',
+              label: _name.text.trim().isEmpty ? 'Loan' : _name.text.trim(),
               amount: p == null ? '—' : money(p.outstanding),
-              caption: s == null ? 'Fill in the details below' : 'Left to pay, with interest and GST',
+              caption: s == null ? 'Fill in the details below' : 'Outstanding: left to pay with interest and GST',
               progress: p?.fraction,
               progressLeft: p == null ? null : 'Paid ${money(p.repaid)}',
               progressRight: p == null ? null : 'of ${money(p.totalPayable)}',
