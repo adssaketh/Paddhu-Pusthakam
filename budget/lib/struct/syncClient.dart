@@ -6,6 +6,7 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/struct/fixedDepositStore.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
@@ -272,6 +273,8 @@ Future<bool> _syncData(BuildContext context) async {
   DateTime syncStarted = DateTime.now();
   List<SyncLog> syncLogs = [];
   List<drive.File> filesSyncing = [];
+  // the settings stored in each downloaded backup (loans, deposits and preferences are merged from these)
+  List<String> remoteSettings = [];
 
   int currentFileIndex = 0;
   loadingProgressKey.currentState?.setProgressPercentage(0);
@@ -508,6 +511,12 @@ Future<bool> _syncData(BuildContext context) async {
       return false;
     }
 
+    try {
+      remoteSettings.add((await databaseSync.getSettings()).settingsJSON);
+    } catch (e) {
+      print("No settings in this backup: " + e.toString());
+    }
+
     currentFileIndex = currentFileIndex + 1;
     loadingProgressKey.currentState?.setProgressPercentage(
         currentFileIndex / filesToDownloadSyncChanges.length);
@@ -516,6 +525,12 @@ Future<bool> _syncData(BuildContext context) async {
   }
 
   await database.processSyncLogs(syncLogs);
+  try {
+    final Set<String> settingsChanged = await applyRemoteSettings(remoteSettings);
+    if (settingsChanged.contains('fixedDeposits')) await scheduleFixedDepositReminders();
+  } catch (e) {
+    print("Settings sync failed: " + e.toString());
+  }
   for (drive.File file in filesSyncing)
     setDateOfLastSyncedWithClient(getDeviceFromSyncBackupFileName(file.name),
         file.modifiedTime?.toLocal() ?? DateTime(0));

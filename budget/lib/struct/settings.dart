@@ -11,6 +11,8 @@ import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:drift/isolate.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/settingsMerge.dart';
+import 'package:budget/struct/syncClient.dart';
 import 'package:budget/struct/defaultPreferences.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/colors.dart';
@@ -170,8 +172,21 @@ Future<bool> updateSettings(
   bool isChanged = appStateSettings[setting] != value;
 
   appStateSettings[setting] = value;
+  // remember when this setting changed, so the newest value wins when the devices sync
+  final bool syncedChange = isChanged && isSyncedSettingKey(setting);
+  if (syncedChange) {
+    final dynamic times = appStateSettings[kSettingsModifiedKey];
+    appStateSettings[kSettingsModifiedKey] = {
+      if (times is Map) ...times,
+      setting: DateTime.now().millisecondsSinceEpoch,
+    };
+  }
   await sharedPreferences.setString(
       'userSettings', json.encode(appStateSettings));
+  if (syncedChange) {
+    // same rule as for any other change: only when "sync every change" is on, otherwise the next sync picks it up
+    createSyncBackup(changeMadeSync: true);
+  }
 
   if (updateGlobalState == true) {
     // Only refresh global state if the value is different
@@ -409,4 +424,33 @@ class TranslationsHelp extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Takes the settings that are newer on the other devices (the settings stored inside their sync backups).
+/// Returns the keys that changed here.
+Future<Set<String>> applyRemoteSettings(List<String> remoteSettingsJson) async {
+  Map<String, dynamic> current = Map<String, dynamic>.from(appStateSettings);
+  final Set<String> changed = {};
+  for (final String text in remoteSettingsJson) {
+    try {
+      final dynamic decoded = json.decode(text);
+      if (decoded is! Map) continue;
+      final SettingsMergeResult result =
+          mergeSettings(current, Map<String, dynamic>.from(decoded));
+      current = result.settings;
+      changed.addAll(result.changedKeys);
+    } catch (e) {
+      print("Could not merge settings from another device: " + e.toString());
+    }
+  }
+  if (changed.isEmpty) return changed;
+  for (final String key in changed) {
+    appStateSettings[key] = current[key];
+  }
+  appStateSettings[kSettingsModifiedKey] = current[kSettingsModifiedKey];
+  await sharedPreferences.setString('userSettings', json.encode(appStateSettings));
+  print("Settings updated from another device: " + changed.toString());
+  appStateKey.currentState?.refreshAppState();
+  return changed;
 }

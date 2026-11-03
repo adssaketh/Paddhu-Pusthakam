@@ -4,6 +4,7 @@
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/notificationsGlobal.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/struct/settingsMerge.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -12,6 +13,7 @@ List<FixedDeposit> loadFixedDeposits() {
   if (stored is! List) return [];
   final List<FixedDeposit> out = [];
   for (final dynamic j in stored) {
+    if (isDeletedItem(j)) continue;
     final FixedDeposit? fd = FixedDeposit.fromJson(j);
     if (fd != null) out.add(fd);
   }
@@ -19,14 +21,41 @@ List<FixedDeposit> loadFixedDeposits() {
 }
 
 Future<void> saveFixedDeposits(List<FixedDeposit> list) async {
+  final dynamic stored = appStateSettings["fixedDeposits"];
+  final Map<String, dynamic> before = {
+    if (stored is List)
+      for (final dynamic j in stored)
+        if (j is Map) '${j['id']}': j
+  };
+  final Set<String> keep = {for (final FixedDeposit fd in list) fd.id};
+  final List<Map<String, dynamic>> items = [];
+  for (final FixedDeposit fd in list) {
+    final Map<String, dynamic> json = fd.toJson();
+    final dynamic old = before[fd.id];
+    // unchanged deposits keep their time, so an old copy never overwrites a newer one on another device
+    final bool same = old is Map && !isDeletedItem(old) && _sameFields(old, json);
+    items.add(same ? Map<String, dynamic>.from(old) : stampItem(json));
+  }
+  // deposits that were removed leave a marker
+  for (final MapEntry<String, dynamic> e in before.entries) {
+    if (keep.contains(e.key)) continue;
+    items.add(isDeletedItem(e.value) ? Map<String, dynamic>.from(e.value as Map) : {'id': e.key, ...deletedMarker()});
+  }
   await updateSettings(
     "fixedDeposits",
-    [for (final FixedDeposit fd in list) fd.toJson()],
+    items,
     updateGlobalState: false,
     pagesNeedingRefresh: [0],
     setStateAllPageFrameworks: true,
   );
   await scheduleFixedDepositReminders();
+}
+
+bool _sameFields(Map old, Map json) {
+  for (final String k in json.keys) {
+    if ('${old[k]}' != '${json[k]}') return false;
+  }
+  return true;
 }
 
 /// Adds the deposit unless the same one is already there. true when it was added.
