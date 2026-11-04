@@ -9,6 +9,7 @@ class KnownAccount {
     this.closed = false,
     this.wallet = '',
     this.tickByDefault = true,
+    this.dueCard = '',
   });
 
   final String name;
@@ -19,6 +20,10 @@ class KnownAccount {
 
   /// false for pension / provident fund schemes: shown in the import list but not ticked.
   final bool tickByDefault;
+
+  /// For an add-on card: the main card it shares its limit with. What you owe is counted on that one card
+  /// (cardDues.dart). Empty for a card that stands alone.
+  final String dueCard;
 }
 
 const Map<String, KnownAccount> kKnownAccounts = {
@@ -31,10 +36,10 @@ const Map<String, KnownAccount> kKnownAccounts = {
   'yes:credit_card:': KnownAccount('Saketh - Kiwi Yes Bank Credit Card', wallet: 'Saketh - Yes Bank'),
   'hdfc:credit_card:0886': KnownAccount('Saketh - HDFC Indian Oil Credit Card', wallet: 'Saketh - HDFC'),
   'scapia:credit_card:visa': KnownAccount('Saketh - Federal Bank Scapia Visa Credit Card', wallet: 'Saketh - Federal'),
-  'scapia:credit_card:rupay': KnownAccount('Federal Bank Scapia Rupay Credit Card (Saketh add-on or Mansa add-on)', wallet: 'Saketh - Federal'),
-  'scapia:credit_card:': KnownAccount('Federal Bank Scapia Credit Card (Saketh Visa or Rupay, or Mansa add-on)', wallet: 'Saketh - Federal'),
+  'scapia:credit_card:rupay': KnownAccount('Federal Bank Scapia Rupay Credit Card (Saketh add-on or Mansa add-on)', wallet: 'Saketh - Federal', dueCard: 'Saketh - Federal Bank Scapia Visa Credit Card'),
+  'scapia:credit_card:': KnownAccount('Federal Bank Scapia Credit Card (Saketh Visa or Rupay, or Mansa add-on)', wallet: 'Saketh - Federal', dueCard: 'Saketh - Federal Bank Scapia Visa Credit Card'),
   'federal:credit_card:1736': KnownAccount('Saketh - Federal Bank Scapia Visa Credit Card', wallet: 'Saketh - Federal'),
-  'federal:credit_card:4278': KnownAccount('Saketh - Federal Bank Scapia Rupay Credit Card (add-on)', wallet: 'Saketh - Federal'),
+  'federal:credit_card:4278': KnownAccount('Saketh - Federal Bank Scapia Rupay Credit Card (add-on for Federal Bank Scapia Visa Credit Card)', wallet: 'Saketh - Federal', dueCard: 'Saketh - Federal Bank Scapia Visa Credit Card'),
   'bajaj:credit_card:0688': KnownAccount('Saketh - Bajaj Finserv EMI Card', wallet: 'Saketh - Bajaj Finserv'),
   'kfncra:account:0840': KnownAccount('Saketh - National Pension Scheme (NPS) Tier 1', wallet: 'Saketh - Pension & PF', tickByDefault: false),
   'ptnnps:account:7819': KnownAccount('Saketh - Atal Pension Yojana (APY)', wallet: 'Saketh - Pension & PF', tickByDefault: false),
@@ -44,7 +49,7 @@ const Map<String, KnownAccount> kKnownAccounts = {
   'dopbnk:account:7718': KnownAccount('Mansa - India Post Payments Bank Savings Account (APY)', wallet: 'Mansa - India Post'),
   'ipbmsg:account:7716': KnownAccount('Mansa - India Post Payments Bank Digital Savings Account (PLI)', wallet: 'Mansa - India Post'),
   'icici:credit_card:5002': KnownAccount('Mansa - ICICI Coral Rupay Credit Card', wallet: 'Mansa - ICICI'),
-  'federal:credit_card:3777': KnownAccount('Mansa - Federal Bank Scapia Rupay Credit Card (add-on)', wallet: 'Mansa - Federal'),
+  'federal:credit_card:3777': KnownAccount("Mansa - Federal Bank Scapia Rupay Credit Card (add-on for Saketh's Federal Bank Scapia Visa Credit Card)", wallet: 'Mansa - Federal', dueCard: 'Saketh - Federal Bank Scapia Visa Credit Card'),
   'ptnnps:account:0727': KnownAccount('Mansa - Atal Pension Yojana (APY)', wallet: 'Mansa - Pension & PF', tickByDefault: false),
   'epfoho:account:4774': KnownAccount('Mansa - Employee Provident Fund (EPF)', wallet: 'Mansa - Pension & PF', tickByDefault: false),
   'icici:account:2090': KnownAccount('Saketh - ICICI Savings Account', wallet: 'Saketh - ICICI', closed: true),

@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:budget/struct/autoSmsPolicy.dart';
+import 'package:budget/struct/cardDuesStore.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/fixedDepositStore.dart';
 import 'package:budget/struct/phonePeTwins.dart';
@@ -187,6 +188,12 @@ Future<PingInboxResult> processPingInbox() async {
         } catch (_) {}
         continue;
       }
+
+      // What you owe on credit cards (spends, bill payments, refunds) is counted for every message,
+      // whatever happens to it below.
+      try {
+        await recordCardDues(parsed.cardDues);
+      } catch (_) {}
 
       // A fixed deposit being booked is added to the Fixed deposits page. The message itself stays in the
       // list below: when it also says money was debited, that part is still saved as a transaction.

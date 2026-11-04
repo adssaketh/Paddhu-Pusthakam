@@ -31,7 +31,7 @@ const Set<String> kSettingsNotSynced = {
 };
 
 /// Settings whose value is a collection of items, merged item by item.
-const Set<String> kSettingsCollections = {'loanTerms', 'fixedDeposits'};
+const Set<String> kSettingsCollections = {'loanTerms', 'fixedDeposits', 'cardDues'};
 
 bool isSyncedSettingKey(String key) => !kSettingsNotSynced.contains(key);
 

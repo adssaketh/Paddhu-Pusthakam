@@ -7,6 +7,7 @@ import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/autoSmsPolicy.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/phonePeTwins.dart';
+import 'package:budget/struct/cardDuesStore.dart';
 import 'package:budget/struct/pingImport.dart';
 import 'package:budget/struct/pingInbox.dart';
 import 'package:budget/struct/pingSave.dart';
@@ -117,6 +118,9 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
         }
         parsed = parsePingExport(text);
       }
+      try {
+        await recordCardDues(parsed.cardDues);
+      } catch (_) {}
       final List<Set<String>> existing = await _existingPingMarkers();
       savedIds = existing[0];
       savedKeys = existing[1];

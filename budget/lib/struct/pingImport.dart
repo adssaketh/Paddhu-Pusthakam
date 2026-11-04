@@ -7,6 +7,7 @@
 
 import 'dart:convert';
 
+import 'cardDues.dart';
 import 'instrumentParser.dart';
 import 'knownAccounts.dart';
 import 'smsTransactionParser.dart';
@@ -91,7 +92,11 @@ class PingImport {
     required this.skipped,
     this.from,
     this.to,
+    this.cardDues = const [],
   });
+
+  /// Credit card spends, refunds and bill payments found in the file (see cardDues.dart).
+  final List<CardDueEntry> cardDues;
 
   /// Newest first.
   final List<PingImportRow> rows;
@@ -152,6 +157,7 @@ PingImport parsePingExport(String jsonText) {
   }
 
   final rows = <PingImportRow>[];
+  final cardDues = <CardDueEntry>[];
   final seen = <String>{};
   var skipped = 0;
 
@@ -171,6 +177,10 @@ PingImport parsePingExport(String jsonText) {
     if (!seen.add(id)) continue;
 
     final ParsedSmsTransaction? parsed = parseSmsTransaction(sender, body);
+    if (parsed != null && parsed.amount > 0) {
+      final CardDueEntry? due = _cardDueOf(parsed, body, date);
+      if (due != null) cardDues.add(due);
+    }
     if (parsed == null || parsed.cardPayment || parsed.amount <= 0) {
       skipped++;
       continue;
@@ -207,5 +217,26 @@ PingImport parsePingExport(String jsonText) {
     skipped: skipped,
     from: _dateFromMs(decoded['from']),
     to: _dateFromMs(decoded['to']),
+    cardDues: cardDues,
+  );
+}
+
+/// The effect of this message on what you owe on a credit card, or null when it is not about a credit card.
+/// The id comes from the day and text of the message, so the same SMS counts once however it arrives.
+CardDueEntry? _cardDueOf(ParsedSmsTransaction parsed, String body, DateTime date) {
+  final KnownAccount? known = knownAccountFor(parsed.instrumentKey);
+  if (known != null && known.closed) return null;
+  final bool credit = parsed.cardPayment ||
+      parsed.instrumentKey.contains(':credit_card') ||
+      (known != null && RegExp(r'credit card|emi card', caseSensitive: false).hasMatch(known.name));
+  if (!credit) return null;
+  final String kind = parsed.cardPayment ? 'payment' : (parsed.isExpense ? 'spend' : 'refund');
+  return CardDueEntry(
+    id: 'cd-${_contentKey(body, date)}',
+    card: (known != null && known.dueCard.isNotEmpty) ? known.dueCard : (known?.name ?? parsed.instrumentName ?? parsed.instrumentKey),
+    kind: kind,
+    amount: parsed.amount,
+    date: date,
+    note: parsed.title,
   );
 }
