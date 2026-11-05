@@ -38,7 +38,7 @@ jobs:
 
       - name: Dump schema and generate migration steps
         run: |
-          dart run drift_dev schema dump lib/database/tables.dart drift_schemas/
+          dart run drift_dev schema dump lib/database/tables.dart drift_schemas/drift_schema_v47.json
           dart run drift_dev schema steps drift_schemas/ lib/database/schema_versions.dart
 
       - name: Analyze
