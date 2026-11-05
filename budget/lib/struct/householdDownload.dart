@@ -3,6 +3,7 @@
 //
 // How it works
 //  - Four live listeners (equality-only queries, so no composite index is needed):
+//      households/{h}                                           the owner's "show balances" switch
 //      households/{h}/members                                   nicknames, for the account names
 //      households/{h}/categories                                shared categories
 //      households/{h}/transactions  isPrivate == false          everyone's shared transactions
@@ -31,21 +32,16 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSync.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:drift/drift.dart' hide Column, Query;
 
-const String kPlaceholderWalletPrefix = 'hh_';
 const int _chunkSize = 300;
 const Duration _firstSnapshotWait = Duration(seconds: 10);
 const Duration _retryDelay = Duration(minutes: 2);
 const String _fallbackMemberName = "Member";
-
-/// The placeholder account that holds [uid]'s transactions on this phone.
-String placeholderWalletPk(String uid) => '$kPlaceholderWalletPrefix$uid';
-
-bool isPlaceholderWalletPk(String walletPk) =>
-    walletPk.startsWith(kPlaceholderWalletPrefix);
 
 // ---------------------------------------------------------------------------
 // small pure helpers (kept free of the database so they can be tested with `dart run`)
@@ -150,6 +146,12 @@ Future<void> _start(int generation) async {
   final DocumentReference<Map<String, dynamic>> household =
       db.collection('households').doc(householdId);
 
+  // The owner's balance switch, so other members' accounts are shown or hidden right away.
+  _subscriptions.add(household.snapshots().listen(
+        (snapshot) => _enqueue(generation, () => _applyHouseholdDocument(snapshot)),
+        onError: (Object e) => _handleError(generation, e),
+      ));
+
   // Members and categories first, so accounts get their names and transactions their categories.
   final Completer<void> membersFirst = Completer<void>();
   _subscriptions.add(household.collection('members').snapshots().listen(
@@ -199,6 +201,32 @@ Future<void> _start(int generation) async {
 }
 
 // ---------------------------------------------------------------------------
+// household document: the owner's "show balances" switch
+
+Future<void> _applyHouseholdDocument(
+    DocumentSnapshot<Map<String, dynamic>> snapshot) async {
+  if (!snapshot.exists) return;
+  await saveHouseholdBalancesShown(snapshot.data()?['showBalances'] == true);
+}
+
+/// The selected account is always one of this person's own accounts, never another member's
+/// placeholder account. Only changes anything when the selected account is a placeholder
+/// (or is gone), e.g. after the other member's account was picked in an earlier build.
+Future<void> ensureOwnWalletSelected() async {
+  final String selected = (appStateSettings["selectedWalletPk"] ?? "").toString();
+  final List<TransactionWallet> all = await (database.select(database.wallets)
+        ..orderBy([(w) => OrderingTerm.asc(w.order)]))
+      .get();
+  final List<TransactionWallet> own =
+      all.where((w) => !isPlaceholderWalletPk(w.walletPk)).toList();
+  if (own.isEmpty) return;
+  if (own.any((w) => w.walletPk == selected)) return;
+  final String pk = own.first.walletPk;
+  await updateSettings("selectedWalletPk", pk, updateGlobalState: true);
+  selectedWalletPkController.add(SelectedWalletPk(selectedWalletPk: pk));
+}
+
+// ---------------------------------------------------------------------------
 // members: names of the placeholder accounts
 
 Future<void> _applyMembers(
@@ -225,6 +253,7 @@ Future<void> _applyMembers(
       dateTimeModified: Value(DateTime.now()),
     ));
   }
+  await ensureOwnWalletSelected();
 }
 
 String _walletNameFor(String uid) {
@@ -464,4 +493,6 @@ Future<void> removeOtherMembersData() async {
   await (database.delete(database.wallets)
         ..where((w) => w.walletPk.like('$kPlaceholderWalletPrefix%')))
       .go();
+  // The selected account must not point at a placeholder account that is now gone.
+  await ensureOwnWalletSelected();
 }

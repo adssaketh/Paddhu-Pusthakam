@@ -251,7 +251,7 @@ class _LoanTermsPageState extends State<LoanTermsPage> {
                   isExpanded: true,
                   decoration: finInput(context, 'Account'),
                   items: [
-                    for (final TransactionWallet w in allWallets.list)
+                    for (final TransactionWallet w in allWallets.ownList)
                       DropdownMenuItem(value: w.walletPk, child: Text(w.name, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (v) {

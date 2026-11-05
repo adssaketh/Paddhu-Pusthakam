@@ -5,6 +5,7 @@ import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/shareBudget.dart';
 import 'package:budget/struct/syncClient.dart';
@@ -608,22 +609,30 @@ class AllWallets {
   final Map<String, TransactionWallet> indexedByPk;
   AllWallets({required this.list, required this.indexedByPk});
 
+  /// This person's own accounts: [list] without the placeholder accounts that hold other
+  /// household members' transactions. Use this for anything the person picks from.
+  List<TransactionWallet> get ownList =>
+      list.where((wallet) => !isPlaceholderWalletPk(wallet.walletPk)).toList();
+
   bool allContainSameCurrency() {
-    if (list.isEmpty) {
+    // Placeholder accounts have no currency of their own, so they are left out here.
+    final List<TransactionWallet> wallets = ownList;
+    if (wallets.isEmpty) {
       return false;
     }
-    final String? firstCurrency = list.first.currency;
-    return list.every((wallet) => wallet.currency == firstCurrency);
+    final String? firstCurrency = wallets.first.currency;
+    return wallets.every((wallet) => wallet.currency == firstCurrency);
   }
 
   bool containsMultipleAccountsWithSameCurrency() {
-    if (list.isEmpty) {
+    final List<TransactionWallet> wallets = ownList;
+    if (wallets.isEmpty) {
       return false;
     }
 
     final Set<String> uniqueCurrencies = {};
 
-    for (TransactionWallet wallet in list) {
+    for (TransactionWallet wallet in wallets) {
       final String? currency = wallet.currency;
 
       if (uniqueCurrencies.contains(currency)) {
@@ -2469,7 +2478,12 @@ class FinanceDatabase extends _$FinanceDatabase {
                   ? Constant(true)
                   : w.name
                       .collate(Collate.noCase)
-                      .like("%" + (searchFor) + "%"))))
+                      .like("%" + (searchFor) + "%")) &
+              // Other household members' accounts (and their totals) stay out of
+              // account lists unless the owner switched balances on.
+              (householdHidesOtherMembersWallets
+                  ? w.walletPk.like(kPlaceholderWalletPrefix + "%").not()
+                  : Constant(true))))
           ..orderBy([(w) => OrderingTerm.asc(w.order)]))
         .join([
       leftOuterJoin(

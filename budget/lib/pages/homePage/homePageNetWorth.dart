@@ -6,6 +6,7 @@ import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/netWorthExtras.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
@@ -37,6 +38,19 @@ class HomePageNetWorth extends StatelessWidget {
               if (walletPks.length <= 0 ||
                   appStateSettings["netWorthAllWallets"] == true)
                 walletPks = null;
+              // Other members' accounts count towards net worth only when the owner
+              // switched balances on. "All accounts" then means this person's own.
+              if (householdHidesOtherMembersWallets) {
+                final AllWallets allWalletsHere =
+                    Provider.of<AllWallets>(context);
+                if (allWalletsHere.list
+                    .any((w) => isPlaceholderWalletPk(w.walletPk))) {
+                  walletPks = (walletPks ??
+                          allWalletsHere.list.map((w) => w.walletPk).toList())
+                      .where((pk) => !isPlaceholderWalletPk(pk))
+                      .toList();
+                }
+              }
               return Padding(
                 padding: const EdgeInsetsDirectional.only(
                     bottom: 13, start: 13, end: 13),

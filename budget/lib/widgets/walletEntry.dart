@@ -3,6 +3,7 @@ import 'package:budget/functions.dart';
 import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
 import 'package:budget/pages/transactionFilters.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/fadeIn.dart';
@@ -115,7 +116,9 @@ class WalletEntry extends StatelessWidget {
               ),
             ),
             onTap: () async {
-              if (selected) {
+              // Another member's account is only looked at, never selected.
+              if (selected ||
+                  isPlaceholderWalletPk(walletWithDetails.wallet.walletPk)) {
                 openContainer();
               } else {
                 setPrimaryWallet(walletWithDetails.wallet.walletPk,
@@ -124,6 +127,10 @@ class WalletEntry extends StatelessWidget {
               }
             },
             onLongPress: () {
+              // Another member's account cannot be edited or deleted here.
+              if (isPlaceholderWalletPk(walletWithDetails.wallet.walletPk)) {
+                return;
+              }
               pushRoute(
                 context,
                 AddWalletPage(
@@ -281,7 +288,9 @@ class WalletEntryRow extends StatelessWidget {
             ),
           ),
           onTap: () async {
-            if (selected || isCurrencyRow) {
+            if (selected ||
+                isCurrencyRow ||
+                isPlaceholderWalletPk(walletWithDetails.wallet.walletPk)) {
               openContainer();
             } else {
               setPrimaryWallet(walletWithDetails.wallet.walletPk,
@@ -299,7 +308,8 @@ class WalletEntryRow extends StatelessWidget {
                 useCustomController: true,
               );
               homePageStateKey.currentState?.refreshState();
-            } else {
+            } else if (!isPlaceholderWalletPk(
+                walletWithDetails.wallet.walletPk)) {
               pushRoute(
                 context,
                 AddWalletPage(
@@ -393,6 +403,8 @@ class AmountAccount extends StatelessWidget {
 
 // set selectedWallet, update selectedWallet
 Future<bool> setPrimaryWallet(String walletPk, {AllWallets? allWallets}) async {
+  // The selected account is always one of this person's own.
+  if (isPlaceholderWalletPk(walletPk)) return false;
   if (allWallets != null &&
       allWallets.indexedByPk[appStateSettings["selectedWalletPk"]]?.currency !=
           null &&

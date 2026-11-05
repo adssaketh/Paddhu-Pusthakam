@@ -14,6 +14,7 @@
 import 'dart:math';
 
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -135,8 +136,12 @@ Future<void> _saveLocal({
   await updateSettings("householdNickname", nickname, updateGlobalState: false);
 }
 
-Future<void> _clearLocal() =>
-    _saveLocal(id: "", name: "", role: "", nickname: "");
+Future<void> _clearLocal() async {
+  await _saveLocal(id: "", name: "", role: "", nickname: "");
+  // Without a household there are no other members' accounts left to show.
+  await updateSettings(kHouseholdShowBalancesKey, false,
+      updateGlobalState: false);
+}
 
 String defaultNickname() {
   final User? user = FirebaseAuth.instance.currentUser;
@@ -173,6 +178,7 @@ Future<String?> refreshHouseholdState() async {
         role: (member.data()?['role'] ?? "member").toString(),
         nickname: (member.data()?['displayName'] ?? defaultNickname()).toString(),
       );
+      await saveHouseholdBalancesShown(household.data()?['showBalances'] == true);
     } on FirebaseException catch (e) {
       if (e.code != 'permission-denied') rethrow;
       // Removed from the household (or it was deleted): drop it here.
@@ -370,6 +376,7 @@ Future<String?> setShowBalances(bool show) async {
   if (db == null) return _offlineMessage;
   try {
     await db.doc('households/$householdId').update({'showBalances': show});
+    await saveHouseholdBalancesShown(show);
     return null;
   } catch (e) {
     return _friendlyError(e);

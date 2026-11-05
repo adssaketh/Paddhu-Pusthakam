@@ -11,6 +11,7 @@ import 'package:budget/struct/cardDuesStore.dart';
 import 'package:budget/struct/pingImport.dart';
 import 'package:budget/struct/pingInbox.dart';
 import 'package:budget/struct/pingSave.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
@@ -244,6 +245,7 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
     }
     TransactionWallet? wallet;
     for (final w in await database.getAllWallets()) {
+      if (isPlaceholderWalletPk(w.walletPk)) continue;
       if (w.name.trim().toLowerCase() == row.walletName.trim().toLowerCase()) {
         wallet = w;
         break;

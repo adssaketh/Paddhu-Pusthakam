@@ -1393,7 +1393,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                 ),
               ),
               // Wallet picker is in Select Amount... consider removing?
-              Provider.of<AllWallets>(context).list.length <= 1
+              Provider.of<AllWallets>(context).ownList.length <= 1
                   ? SizedBox.shrink()
                   : HorizontalBreakAbove(
                       enabled: enableDoubleColumn(context),
@@ -1413,7 +1413,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                               ),
                             );
                           },
-                          items: Provider.of<AllWallets>(context).list,
+                          items: Provider.of<AllWallets>(context).ownList,
                           getSelected: (TransactionWallet wallet) {
                             return getSelectedWallet(listen: false)?.walletPk ==
                                 wallet.walletPk;
@@ -1954,7 +1954,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                                 ),
                               ),
                             ),
-                            Provider.of<AllWallets>(context).list.length <= 1 ||
+                            Provider.of<AllWallets>(context).ownList.length <= 1 ||
                                     selectedWalletPk ==
                                         appStateSettings["selectedWalletPk"] ||
                                     ((getSelectedWallet(listen: true)
