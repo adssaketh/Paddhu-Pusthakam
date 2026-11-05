@@ -26,7 +26,7 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 47;
+int schemaVersionGlobal = 48;
 
 // To update and migrate the database, check the README
 
@@ -343,6 +343,9 @@ class Transactions extends Table {
   // Private transactions are visible only to their owner and are left out of
   // household totals. Always false in single-user mode.
   BoolColumn get isPrivate => boolean().withDefault(const Constant(false))();
+  // Household sync: the dateTimeModified that was last uploaded to the household.
+  // The transaction still needs uploading while this is null or older than dateTimeModified.
+  DateTimeColumn get householdSyncedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {transactionPk};
@@ -1197,6 +1200,17 @@ class FinanceDatabase extends _$FinanceDatabase {
               } catch (e) {
                 print(
                     "Migration Error: Error creating column transactions.isPrivate " +
+                        e.toString());
+              }
+            },
+            from47To48: (m, schema) async {
+              // Household sync: remembers what was last uploaded.
+              try {
+                await m.addColumn(
+                    schema.transactions, schema.transactions.householdSyncedAt);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.householdSyncedAt " +
                         e.toString());
               }
             },

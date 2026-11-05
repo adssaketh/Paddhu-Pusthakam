@@ -33,7 +33,18 @@ jobs:
 
       - run: flutter pub get
 
+      # When tables.dart changed, the regeneration workflow makes the report instead.
+      - name: Is the generated code out of date?
+        id: gen
+        run: |
+          if grep -q "householdSyncedAt" lib/database/tables.dart && ! grep -q "householdSyncedAt" lib/database/tables.g.dart; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Analyze
+        if: steps.gen.outputs.stale != 'true'
         run: |
           flutter analyze > ../analyze_full.txt 2>&1 || true
           grep -E " error • " ../analyze_full.txt > ../report_errors.txt || true
@@ -41,7 +52,7 @@ jobs:
           tail -3 ../analyze_full.txt > ../report_summary.txt || true
 
       - name: Publish report
-        if: always()
+        if: always() && steps.gen.outputs.stale != 'true'
         working-directory: .
         run: |
           mkdir /tmp/report

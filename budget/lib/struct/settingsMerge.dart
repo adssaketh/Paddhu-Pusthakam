@@ -30,6 +30,7 @@ const Set<String> kSettingsNotSynced = {
   'allSpendingLastPage', 'loansLastPage',
   // household membership belongs to one login, it is re-read from the server
   'householdId', 'householdName', 'householdRole', 'householdNickname',
+  'householdSyncReady', 'householdDeleteCursor', 'householdCategoriesHash', 'householdLastSync',
 };
 
 /// Settings whose value is a collection of items, merged item by item.

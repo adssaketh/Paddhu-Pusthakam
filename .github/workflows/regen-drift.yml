@@ -38,7 +38,7 @@ jobs:
 
       - name: Dump schema and generate migration steps
         run: |
-          dart run drift_dev schema dump lib/database/tables.dart drift_schemas/drift_schema_v47.json
+          dart run drift_dev schema dump lib/database/tables.dart drift_schemas/drift_schema_v48.json
           dart run drift_dev schema steps drift_schemas/ lib/database/schema_versions.dart
 
       - name: Analyze
@@ -53,6 +53,32 @@ jobs:
           if git diff --cached --quiet; then
             echo "No generated changes"
           else
-            git commit -m "Regenerate drift files for schema 47"
+            git commit -m "Regenerate drift files for schema 48"
             git push
           fi
+
+      # The push above does not start other workflows, so the analyzer report for the
+      # final state is made here and published to the ci-report branch.
+      - name: Analyze final state
+        run: |
+          flutter analyze > ../analyze_full.txt 2>&1 || true
+          grep -E " error • " ../analyze_full.txt > ../report_errors.txt || true
+          grep -iE "household|accountsPage|defaultPreferences|settingsMerge" ../analyze_full.txt > ../report_touched.txt || true
+          tail -3 ../analyze_full.txt > ../report_summary.txt || true
+
+      - name: Publish report
+        if: always()
+        working-directory: .
+        run: |
+          mkdir /tmp/report
+          cp report_errors.txt report_touched.txt report_summary.txt /tmp/report/ || true
+          git rev-parse HEAD > /tmp/report/commit.txt
+          cd /tmp/report
+          git init -q
+          git checkout -q -b ci-report
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -qm "Analyzer report after regeneration"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f origin ci-report

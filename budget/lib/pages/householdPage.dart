@@ -1,5 +1,6 @@
 import 'package:budget/functions.dart';
 import 'package:budget/struct/householdService.dart';
+import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/button.dart';
@@ -29,6 +30,7 @@ class _HouseholdPageState extends State<HouseholdPage> {
   String? _error;
   HouseholdSnapshot? _household;
   String? _inviteCode;
+  int _waiting = 0; // transactions waiting to be uploaded
 
   @override
   void initState() {
@@ -64,24 +66,68 @@ class _HouseholdPageState extends State<HouseholdPage> {
       });
       return;
     }
+    // Keep this phone's sharing in step with the household (also stops it after a removal).
+    await applyHouseholdSyncState();
     if (!isInHousehold) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _household = null;
         _inviteCode = null;
+        _waiting = 0;
       });
       return;
     }
     final HouseholdResult<HouseholdSnapshot> result = await loadHousehold();
     String? code;
     if (result.isOk && isHouseholdOwner) code = await currentInviteCode();
+    final int waiting =
+        householdSyncReady ? await countWaitingTransactions() : 0;
     if (!mounted) return;
     setState(() {
       _loading = false;
       _household = result.value;
       _error = result.error;
       _inviteCode = code;
+      _waiting = waiting;
     });
+  }
+
+  /// Asks what to do with the transactions already on this phone.
+  void _askShare() {
+    openPopup(
+      context,
+      title: "Share your existing transactions?",
+      description:
+          "Your earlier transactions can be added to the household so everyone sees them. If you keep them private, they stay on this phone and only new transactions are shared.",
+      onSubmitLabel: "Share them",
+      onCancelLabel: "Keep private",
+      onSubmit: () {
+        popRoute(context);
+        _adopt(true);
+      },
+      onCancel: () {
+        popRoute(context);
+        _adopt(false);
+      },
+    );
+  }
+
+  Future<void> _adopt(bool share) async {
+    await _run(() => adoptExistingTransactions(share: share),
+        success: share
+            ? "Your transactions are being shared"
+            : "Only new transactions will be shared");
+  }
+
+  Future<void> _syncNow() async {
+    await _run(syncHouseholdNow, success: "Everything is uploaded");
+  }
+
+  /// After creating or joining: ask what to share if that was not decided yet.
+  Future<void> _afterSetup() async {
+    await _reload();
+    if (mounted && isInHousehold && !householdSyncReady) _askShare();
   }
 
   /// Runs an action that returns an error message (or null), then refreshes the page.
@@ -115,7 +161,7 @@ class _HouseholdPageState extends State<HouseholdPage> {
       ),
       popupWithKeyboard: true,
     );
-    await _reload();
+    await _afterSetup();
   }
 
   Future<void> _openJoin() async {
@@ -135,7 +181,7 @@ class _HouseholdPageState extends State<HouseholdPage> {
       ),
       popupWithKeyboard: true,
     );
-    await _reload();
+    await _afterSetup();
   }
 
   Future<void> _openRename() async {
@@ -217,7 +263,11 @@ class _HouseholdPageState extends State<HouseholdPage> {
       onCancelLabel: "Cancel",
       onSubmit: () {
         popRoute(context);
-        _run(leaveHousehold, success: "You left the household");
+        _run(() async {
+          final String? error = await leaveHousehold();
+          if (error == null) await releaseHouseholdTransactions();
+          return error;
+        }, success: "You left the household");
       },
       onCancel: () {
         popRoute(context);
@@ -315,6 +365,31 @@ class _HouseholdPageState extends State<HouseholdPage> {
           icon: Icons.badge_rounded,
           onTap: _openRename,
         ),
+        if (!householdSyncReady)
+          SettingsContainer(
+            title: "Choose what to share",
+            description:
+                "Nothing is shared yet. Tap to choose what happens to your existing transactions.",
+            icon: Icons.sync_problem_rounded,
+            onTap: _askShare,
+          )
+        else ...[
+          SettingsContainer(
+            title: "Shared transactions",
+            description: _waiting == 0
+                ? "Everything is uploaded. Tap to check now."
+                : "$_waiting waiting to upload. Tap to upload now.",
+            icon: Icons.cloud_upload_rounded,
+            onTap: _syncNow,
+          ),
+          SettingsContainer(
+            title: "Share my earlier transactions",
+            description:
+                "Add the transactions you kept private on this phone to the household.",
+            icon: Icons.history_rounded,
+            onTap: _askShare,
+          ),
+        ],
         if (owner) ...[
           SettingsContainerSwitch(
             title: "Show account balances to members",

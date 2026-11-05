@@ -161,6 +161,10 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "householdName": "",
     "householdRole": "", // "owner" or "member"
     "householdNickname": "",
+    "householdSyncReady": false, // true once the person chose what to share
+    "householdDeleteCursor": 0, // deletions before this time (ms) are not uploaded
+    "householdCategoriesHash": "",
+    "householdLastSync": "",
     "usersNicknames": {},
     "requireAuth": false,
     "cachedCurrencyExchange": {},
