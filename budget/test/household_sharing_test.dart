@@ -2,6 +2,7 @@
 // Run with: dart run test/household_sharing_test.dart
 
 import '../lib/struct/householdSharingRules.dart';
+import '../lib/struct/settingsMerge.dart';
 
 void check(bool ok, String msg) {
   if (!ok) throw Exception('FAILED: $msg');
@@ -159,6 +160,22 @@ void main() {
       heldOwnerByDocId: const {'x': 'sis', 'y': 'me', 'z': 'dad'}, myUid: 'me');
   check(drop.length == 2 && drop.contains('x') && drop.contains('z') && !drop.contains('y'),
       'leaving drops other people\'s copies and keeps my own items');
+
+  // ---- the settings that hold the owner's choices
+  check(isSyncedSettingKey('householdSharedOwn'), 'who I share with is kept in step between my own phones');
+  check(!isSyncedSettingKey('householdSharedUploaded'), 'what this phone sent is not copied to my other phones');
+  final Map<String, dynamic> localOwn = {
+    'householdSharedOwn': {'fd-me-a': {'_u': 10, '_d': false, 'visibleTo': ['sis']}},
+  };
+  final Map<String, dynamic> remoteOwn = {
+    'householdSharedOwn': {
+      'fd-me-a': {'_u': 20, '_d': true},
+      'loan-me-b': {'_u': 5, '_d': false, 'visibleTo': ['dad']},
+    },
+  };
+  final Map merged = mergeSettings(localOwn, remoteOwn).settings['householdSharedOwn'] as Map;
+  check(merged['loan-me-b'] != null, 'a choice made on the other phone is added');
+  check((merged['fd-me-a'] as Map)['_d'] == true, 'the newer change (made private again) wins');
 
   print('household sharing: all checks passed');
 }

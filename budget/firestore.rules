@@ -82,6 +82,65 @@ service cloud.firestore {
         allow delete: if isMember(h)
           && (resource.data.ownerId == request.auth.uid || me(h).canDelete == true);
       }
+
+      // Shared loans and fixed deposits: one document per item (see householdSharingRules.dart).
+      // Fields: kind, ownerUid, localId, visibleTo (uids besides the owner), membersCanEdit, _u, payload.
+      // Private by default: only the owner and the people listed in visibleTo can read an item.
+      match /sharedItems/{i} {
+        // Same checks as _audienceError() in the app: a list of at most 7 other members, no duplicates.
+        function audienceOk(d) {
+          return d.visibleTo is list
+            && d.visibleTo.size() <= 7
+            && d.membersCanEdit is bool
+            && !(d.ownerUid in d.visibleTo)
+            && d.visibleTo.toSet().size() == d.visibleTo.size()
+            && (d.visibleTo.size() < 1 || exists(memPath(h, d.visibleTo[0])))
+            && (d.visibleTo.size() < 2 || exists(memPath(h, d.visibleTo[1])))
+            && (d.visibleTo.size() < 3 || exists(memPath(h, d.visibleTo[2])))
+            && (d.visibleTo.size() < 4 || exists(memPath(h, d.visibleTo[3])))
+            && (d.visibleTo.size() < 5 || exists(memPath(h, d.visibleTo[4])))
+            && (d.visibleTo.size() < 6 || exists(memPath(h, d.visibleTo[5])))
+            && (d.visibleTo.size() < 7 || exists(memPath(h, d.visibleTo[6])));
+        }
+        function shapeOk(d) {
+          return d.kind in ['loan', 'fd']
+            && d.ownerUid is string
+            && d.localId is string && d.localId.size() > 0
+            && d._u is number
+            && d.payload is map
+            && i.matches(d.kind + '-' + d.ownerUid + '-.+');
+        }
+
+        // Two queries are allowed: ownerUid == me, and visibleTo array-contains me.
+        allow read: if isMember(h)
+          && (resource.data.ownerUid == request.auth.uid
+              || request.auth.uid in resource.data.visibleTo);
+
+        allow create: if isMember(h)
+          && request.resource.data.ownerUid == request.auth.uid
+          && shapeOk(request.resource.data)
+          && audienceOk(request.resource.data);
+
+        // The owner changes anything except who the owner is, what kind it is and its local id.
+        // Somebody else may change only the details (payload and _u), and only when the owner allowed it.
+        allow update: if isMember(h)
+          && shapeOk(request.resource.data)
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.kind == resource.data.kind
+          && request.resource.data.localId == resource.data.localId
+          && (
+            (resource.data.ownerUid == request.auth.uid && audienceOk(request.resource.data))
+            ||
+            (resource.data.membersCanEdit == true
+              && request.auth.uid in resource.data.visibleTo
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['payload', '_u']))
+          );
+
+        // Only the owner of the item deletes it. The household owner may also clear away the items of
+        // a person who was removed.
+        allow delete: if isMember(h)
+          && (resource.data.ownerUid == request.auth.uid || isOwner(h));
+      }
     }
   }
 }
