@@ -23,6 +23,8 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/categoryIcon.dart';
 import 'package:budget/widgets/dropdownSelect.dart';
+import 'package:budget/struct/householdService.dart';
+import 'package:budget/struct/householdView.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/incomeExpenseTabSelector.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
@@ -145,6 +147,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   String selectedRecurrenceDisplay = "month";
   BudgetReoccurence selectedRecurrenceEnum = BudgetReoccurence.monthly;
   bool selectedIncome = false;
+  // Household: a private transaction is hidden from the other members and left out of household totals.
+  bool selectedIsPrivate = false;
   bool initiallySettingSelectedIncome = false;
   String? selectedPayer;
   String? selectedObjectivePk;
@@ -648,7 +652,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       }
     }
 
-    Transaction createdTransaction = Transaction(ownerUid: widget.transaction?.ownerUid, isPrivate: widget.transaction?.isPrivate ?? false, 
+    Transaction createdTransaction = Transaction(ownerUid: widget.transaction?.ownerUid, isPrivate: isInHousehold ? selectedIsPrivate : (widget.transaction?.isPrivate ?? false),
       transactionPk:
           widget.transaction != null ? widget.transaction!.transactionPk : "-1",
       pairedTransactionFk: widget.transaction?.pairedTransactionFk,
@@ -750,6 +754,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       }
       selectedPaid = widget.transaction!.paid;
       selectedIncome = widget.transaction!.income;
+      selectedIsPrivate = widget.transaction!.isPrivate;
       selectedPayer = widget.transaction!.transactionOwnerEmail;
       selectedBudgetPk = widget.transaction!.sharedReferenceBudgetPk;
       selectedObjectivePk = widget.transaction!.objectiveFk;
@@ -1571,6 +1576,27 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       ),
                     ],
                   )),
+              if (isInHousehold)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(top: 5),
+                  child: SettingsContainerSwitch(
+                    title: "Private transaction",
+                    description:
+                        "Hidden from the other members and left out of household totals.",
+                    icon: Icons.lock_outline_rounded,
+                    enableBorderRadius: true,
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .secondaryContainer
+                        .withOpacity(0.7),
+                    initialValue: selectedIsPrivate,
+                    onSwitched: (value) {
+                      setState(() {
+                        selectedIsPrivate = value;
+                      });
+                    },
+                  ),
+                ),
               AnimatedSizeSwitcher(
                 child: showMoreOptions == false
                     ? Padding(
@@ -3441,6 +3467,16 @@ void deleteTransactionPopup(
   required TransactionCategory? category,
   required RoutesToPopAfterDelete routesToPopAfterDelete,
 }) async {
+  // Members delete only their own transactions unless the owner allowed more.
+  if (!canDeleteTransactionOwnedBy(transaction.ownerUid)) {
+    openSnackbar(
+      SnackbarMessage(
+        title: kCannotDeleteOthersMessage,
+        icon: Icons.lock_outline_rounded,
+      ),
+    );
+    return;
+  }
   String? transactionName =
       await getTransactionLabel(transaction, category: category);
   DeletePopupAction? action = await openDeletePopup(
@@ -3529,6 +3565,20 @@ Future deleteTransactionsPopup(
   required List<String> transactionPks,
   required RoutesToPopAfterDelete routesToPopAfterDelete,
 }) async {
+  // Members delete only their own transactions unless the owner allowed more.
+  if (!householdMemberCanDelete) {
+    final List<Transaction> selected =
+        await database.getTransactionsFromPk(transactionPks);
+    if (selected.any((t) => !canDeleteTransactionOwnedBy(t.ownerUid))) {
+      openSnackbar(
+        SnackbarMessage(
+          title: kCannotDeleteOthersMessage,
+          icon: Icons.lock_outline_rounded,
+        ),
+      );
+      return null;
+    }
+  }
   DeletePopupAction? action = await openDeletePopup(
     context,
     title: "delete-selected-transactions".tr(),

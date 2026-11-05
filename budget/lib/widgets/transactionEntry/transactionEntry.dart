@@ -3,8 +3,10 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/listenableSelector.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/struct/upcomingTransactionsFunctions.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/breathingAnimation.dart';
@@ -313,7 +315,18 @@ class TransactionEntry extends StatelessWidget {
         sizePadding: 20,
         margin: EdgeInsetsDirectional.zero,
         borderRadius: 100,
-        onTap: openContainer,
+        onTap: () {
+          if (!canEditTransactionOwnedBy(transaction.ownerUid)) {
+            openSnackbar(
+              SnackbarMessage(
+                title: kCannotEditOthersMessage,
+                icon: Icons.lock_outline_rounded,
+              ),
+            );
+            return;
+          }
+          openContainer();
+        },
       );
       Widget actionButton(EdgeInsetsDirectional padding) {
         Widget actionButton = TransactionEntryActionButton(
@@ -681,6 +694,17 @@ class TransactionEntry extends StatelessWidget {
                               selectTransaction(transaction, selected, true);
                             },
                             onTap: () async {
+                              // Members change only their own transactions.
+                              if (!canEditTransactionOwnedBy(
+                                  transaction.ownerUid)) {
+                                openSnackbar(
+                                  SnackbarMessage(
+                                    title: kCannotEditOthersMessage,
+                                    icon: Icons.lock_outline_rounded,
+                                  ),
+                                );
+                                return;
+                              }
                               openContainer();
                             },
                             child: AnimatedContainer(

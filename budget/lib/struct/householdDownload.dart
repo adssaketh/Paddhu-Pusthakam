@@ -32,6 +32,7 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSync.dart';
+import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/watchAllWallets.dart';
@@ -234,6 +235,10 @@ Future<void> _applyMembers(
   final Map<String, String> names = {};
   for (final doc in snapshot.docs) {
     names[doc.id] = (doc.data()['displayName'] ?? "").toString().trim();
+    if (doc.id == myUid) {
+      // The owner's "can delete others' transactions" permission for this person.
+      await saveHouseholdMemberCanDelete(doc.data()['canDelete'] == true);
+    }
   }
   _memberNames = names;
 

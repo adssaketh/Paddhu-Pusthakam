@@ -9,6 +9,7 @@ import 'package:budget/pages/editWalletsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
+import 'package:budget/widgets/householdViewToggle.dart';
 import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/util/keepAliveClientMixin.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
@@ -26,6 +27,24 @@ class HomePageWalletSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return KeepAliveClientMixin(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const HouseholdViewToggle(),
+          _buildSwitcher(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSwitcher(BuildContext context) {
+    return Builder(
+      builder: (context) => _buildSwitcherInner(context),
+    );
+  }
+
+  Widget _buildSwitcherInner(BuildContext context) {
     return KeepAliveClientMixin(
       child: Padding(
         padding: const EdgeInsetsDirectional.only(bottom: 13.0),

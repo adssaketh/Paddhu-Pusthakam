@@ -5,6 +5,8 @@ import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdService.dart';
+import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/shareBudget.dart';
@@ -6174,7 +6176,22 @@ class FinanceDatabase extends _$FinanceDatabase {
         includeIncome &
         includeDebtAndCredit &
         includeAddedToObjective &
-        includeBalanceCorrection;
+        includeBalanceCorrection &
+        householdViewFilter(tbl);
+  }
+
+  /// Household view (Everyone / Mine), same rule as householdTransactionVisible().
+  /// Always true outside a household, so single-user mode is untouched.
+  Expression<bool> householdViewFilter($TransactionsTable tbl) {
+    if (!householdViewFilterActive) return Constant(true);
+    final String myUid = currentHouseholdUserUid;
+    if (householdViewIsMine) {
+      return tbl.ownerUid.isNull() |
+          tbl.ownerUid.equals('') |
+          (myUid == "" ? Constant(false) : tbl.ownerUid.equals(myUid));
+    }
+    return tbl.isPrivate.equals(false) &
+        (tbl.ownerUid.isNull() | tbl.ownerUid.equals('').not());
   }
 
   Stream<double?> watchTotalSpentByCurrentUserOnly(

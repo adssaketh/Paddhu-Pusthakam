@@ -14,6 +14,7 @@
 import 'dart:math';
 
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
@@ -141,6 +142,7 @@ Future<void> _clearLocal() async {
   // Without a household there are no other members' accounts left to show.
   await updateSettings(kHouseholdShowBalancesKey, false,
       updateGlobalState: false);
+  await updateSettings(kHouseholdCanDeleteKey, false, updateGlobalState: false);
 }
 
 String defaultNickname() {
