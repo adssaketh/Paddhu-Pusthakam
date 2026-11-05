@@ -1,8 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
-
-    // ---------- helpers ----------
     function signedIn() { return request.auth != null; }
     function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
     function hDoc(h) { return get(/databases/$(db)/documents/households/$(h)); }
@@ -11,25 +9,12 @@ service cloud.firestore {
     function me(h) { return get(mPath(h)).data; }
     function isOwner(h) { return isMember(h) && me(h).role == 'owner'; }
 
-    // ---------- personal data (owner-only, syncs across the user's devices) ----------
-    match /users/{uid} {
+    // Personal data (accounts, settings, loans, deposits, pending, learned): owner only
+    match /users/{uid}/{document=**} {
       allow read, write: if isSelf(uid);
-
-      // real account details: name, number, type, bank
-      match /accounts/{id}   { allow read, write: if isSelf(uid); }
-      // settings, fonts, theme, preferences
-      match /settings/{id}   { allow read, write: if isSelf(uid); }
-      // loans and fixed deposits
-      match /loans/{id}      { allow read, write: if isSelf(uid); }
-      match /deposits/{id}   { allow read, write: if isSelf(uid); }
-      // SMS review queue from Ping (unconfirmed transactions)
-      match /pending/{id}    { allow read, write: if isSelf(uid); }
-      // learned corrections (merchant -> category/account)
-      match /learned/{id}    { allow read, write: if isSelf(uid); }
     }
 
-    // ---------- invites ----------
-    // Owner creates an invite code; a joining user reads it by exact code only.
+    // Invites: read by exact code only, created by the household owner
     match /invites/{code} {
       allow get: if signedIn();
       allow list: if false;
@@ -40,41 +25,31 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // ---------- household ----------
     match /households/{h} {
       allow read: if isMember(h);
       allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isOwner(h)
-        && request.resource.data.ownerId == resource.data.ownerId;   // owner can't be changed here
+      allow update: if isOwner(h) && request.resource.data.ownerId == resource.data.ownerId;
       allow delete: if isOwner(h);
 
-      // members
       match /members/{m} {
         allow read: if isMember(h);
-
-        // first member = the creator becoming owner
         allow create: if isSelf(m) && (
           (request.resource.data.role == 'owner'
             && hDoc(h).data.ownerId == request.auth.uid
             && !exists(/databases/$(db)/documents/households/$(h)/members/$(m)))
           ||
-          // joining with a valid invite code
           (request.resource.data.role == 'member'
             && request.resource.data.canDelete == false
             && get(/databases/$(db)/documents/invites/$(request.resource.data.inviteCode)).data.householdId == h)
         );
-
-        // owner manages roles and delete permission; a member can edit own display name only
         allow update: if isOwner(h)
           || (isSelf(m)
               && request.resource.data.role == resource.data.role
               && request.resource.data.canDelete == resource.data.canDelete);
-
-        // owner removes anyone (except self); members can leave
         allow delete: if (isOwner(h) && m != request.auth.uid) || (isSelf(m) && me(h).role != 'owner');
       }
 
-      // balances: separate docs so they can be hidden
+      // Balances live in their own docs so the owner can hide them from others
       match /balances/{a} {
         allow read: if isMember(h)
           && (resource.data.ownerId == request.auth.uid || hDoc(h).data.showBalances == true);
@@ -82,25 +57,20 @@ service cloud.firestore {
         allow update, delete: if isMember(h) && resource.data.ownerId == request.auth.uid;
       }
 
-      // shared categories
       match /categories/{c} {
-        allow read: if isMember(h);
-        allow write: if isMember(h);
+        allow read, write: if isMember(h);
       }
 
-      // transactions: everyone sees them, private ones only the owner
+      // Everyone sees transactions; private ones only the owner
       match /transactions/{t} {
         allow read: if isMember(h)
           && (resource.data.isPrivate == false || resource.data.ownerId == request.auth.uid);
-
         allow create: if isMember(h)
           && request.resource.data.ownerId == request.auth.uid
           && request.resource.data.isPrivate is bool;
-
         allow update: if isMember(h)
           && resource.data.ownerId == request.auth.uid
           && request.resource.data.ownerId == resource.data.ownerId;
-
         allow delete: if isMember(h)
           && (resource.data.ownerId == request.auth.uid || me(h).canDelete == true);
       }
