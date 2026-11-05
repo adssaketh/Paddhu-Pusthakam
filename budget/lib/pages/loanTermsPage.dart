@@ -8,10 +8,12 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/loanSchedule.dart';
 import 'package:budget/struct/loanTerms.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/financeUi.dart';
+import 'package:budget/widgets/householdSharePicker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -46,6 +48,9 @@ class _LoanTermsPageState extends State<LoanTermsPage> {
   String _walletPk = appStateSettings["selectedWalletPk"].toString();
   double _linkedSum = 0;
   bool _showAll = false;
+  // Who can see this loan (inside a household); nothing is shared until the owner picks people.
+  late final SharingChoice _sharing =
+      SharingChoice.load(kSharedKindLoan, widget.objective?.objectivePk);
 
   @override
   void initState() {
@@ -165,6 +170,11 @@ class _LoanTermsPageState extends State<LoanTermsPage> {
       ));
     }
     await saveLoanTerms(pk, t);
+    final String? sharingError = await _sharing.save(pk);
+    if (sharingError != null && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(sharingError)));
+    }
     if (mounted) popRoute(context);
   }
 
@@ -240,6 +250,12 @@ class _LoanTermsPageState extends State<LoanTermsPage> {
                   FinPill('Next ${_date(next.dueDate)}', icon: Icons.schedule, onHero: true),
               ],
             ),
+            // Who this person shared the loan with (nothing for a private loan).
+            if (widget.objective != null)
+              HouseholdSharedBadge(
+                  kind: kSharedKindLoan,
+                  localId: widget.objective!.objectivePk,
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 4)),
 
             // ---- details
             const FinSectionTitle('Loan details'),
@@ -337,6 +353,7 @@ class _LoanTermsPageState extends State<LoanTermsPage> {
               ),
             ],
 
+            HouseholdSharePicker(choice: _sharing),
             const SizedBox(height: 4),
             FilledButton(
               onPressed: _save,

@@ -15,7 +15,9 @@
 //    a "removed" change drops it at once, and a snapshot straight from the server also drops anything held
 //    that the server no longer shows. A snapshot that only came from the phone's own cache never does that,
 //    because an empty cache would look like "everything was taken away".
-//  - Copies are read only for now. Editing a copy the owner allowed to edit comes with the editors.
+//  - A copy is read only, unless the owner allowed members to edit it (SharedCopy.canEdit): then the edit page
+//    writes the change to the server (householdSharedEdit.dart), the copy follows at once
+//    (storeSharedCopyEdit), and the owner's phone applies the change to the real loan or deposit.
 //
 // The owner's own items are never stored here: they are the real loan or deposit.
 
@@ -169,6 +171,25 @@ Future<void> applySharedItemsSnapshot(
   }
 
   if (!changed) return;
+  await _save(stored);
+}
+
+/// A member's edit of a shared item was saved on the server: the copy on this phone follows at once, with
+/// the time of that edit. (When the same change then comes back from the server it has the same time, so
+/// it is not written twice.) Does nothing when the copy is gone or already as new.
+Future<void> storeSharedCopyEdit(
+    String docId, Map<String, dynamic> payload, int updatedAt) async {
+  final Map<String, dynamic> stored = _stored();
+  final dynamic held = stored[docId];
+  if (held is! Map) return;
+  if (_updatedAtOf(held) >= updatedAt) return;
+  final Map<String, dynamic>? next = _jsonSafe({
+    for (final MapEntry e in held.entries) '${e.key}': e.value,
+    'payload': payload,
+    '_u': updatedAt,
+  });
+  if (next == null) return;
+  stored[docId] = next;
   await _save(stored);
 }
 

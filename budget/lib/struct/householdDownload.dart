@@ -2,7 +2,7 @@
 // categories) from Cloud Firestore onto this phone. The outbound half is householdSync.dart.
 //
 // How it works
-//  - Six live listeners (equality-only queries, so no composite index is needed):
+//  - Seven live listeners (equality-only queries, so no composite index is needed):
 //      households/{h}                                           the owner's "show balances" switch
 //      households/{h}/members                                   nicknames, for the account names
 //      households/{h}/categories                                shared categories
@@ -10,7 +10,10 @@
 //      households/{h}/transactions  ownerId == me, isPrivate == true
 //                                                               my own private ones (second phone)
 //      households/{h}/sharedItems   visibleTo array-contains me  loans and deposits others shared with me
-//                                                               (kept as read-only copies, householdSharedCopies.dart)
+//                                                               (kept as copies, householdSharedCopies.dart)
+//      households/{h}/sharedItems   ownerUid == me                my own shared items: a member the owner allowed
+//                                                               to edit one has it applied to the real loan or
+//                                                               deposit (householdSharedItems.dart)
 //  - Accounts are private, so another member's transactions all land in one placeholder
 //    account per member (walletPk "hh_<uid>", named after their nickname, ownerUid = their uid).
 //    The remote walletFk is ignored for their rows.
@@ -39,6 +42,7 @@ import 'package:budget/struct/householdMembers.dart';
 import 'package:budget/struct/householdMergeRules.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSharedCopies.dart';
+import 'package:budget/struct/householdSharedItems.dart';
 import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/householdWallets.dart';
@@ -210,6 +214,31 @@ Future<void> _start(int generation) async {
             _enqueue(generation, () => applySharedItemsSnapshot(snapshot, uid)),
         onError: (Object e) => _handleSharedItemsError(generation, e),
       ));
+
+  // My own shared items: when a member the owner allowed to edit changes one, this phone puts the change on
+  // the real loan or deposit. The other half of the query pair the rules allow (ownerUid == me).
+  _subscriptions.add(household
+      .collection('sharedItems')
+      .where('ownerUid', isEqualTo: uid)
+      .snapshots()
+      .listen(
+        (snapshot) =>
+            unawaited(_applyOwnSharedItems(generation, snapshot, uid)),
+        onError: (Object e) => _handleSharedItemsError(generation, e),
+      ));
+}
+
+/// Not in the download queue on purpose: applying waits for a running upload of shared items, and that must
+/// never hold up the transactions behind it. If a document could not be used, a sync is asked for so the real
+/// item replaces it on the server.
+Future<void> _applyOwnSharedItems(int generation,
+    QuerySnapshot<Map<String, dynamic>> snapshot, String uid) async {
+  try {
+    final bool needsSync = await applyOwnSharedItemsSnapshot(snapshot, uid);
+    if (generation == _generation && needsSync) requestHouseholdSync();
+  } catch (e) {
+    print("Household download: own shared items: ${e.toString()}");
+  }
 }
 
 /// Errors of the shared items listener are only logged. If the rules for shared items are not published

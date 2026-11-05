@@ -1,10 +1,12 @@
-// A loan or fixed deposit that another household member shared with this person, read only.
-// It is a copy kept on this phone (householdSharedCopies.dart): it is never counted in this person's net
-// worth, loan totals or reminders, and it follows the owner's changes. If the owner stops sharing it, the
-// page says so.
+// A loan or fixed deposit that another household member shared with this person. It is a copy kept on this
+// phone (householdSharedCopies.dart): it is never counted in this person's net worth, loan totals or
+// reminders, and it follows the owner's changes. It is read only, unless the owner allowed members to edit
+// it: then there is an edit button (householdSharedEditPage.dart). If the owner stops sharing it, the page
+// says so.
 
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
+import 'package:budget/pages/householdSharedEditPage.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/loanSchedule.dart';
@@ -82,7 +84,15 @@ class _HouseholdSharedItemPageState extends State<HouseholdSharedItemPage> {
         : (sharedDeposit(copy.payload)?.bank ?? 'Fixed deposit');
 
     return Scaffold(
-      appBar: AppBar(title: Text(title), centerTitle: false),
+      appBar: AppBar(title: Text(title), centerTitle: false, actions: [
+        if (copy.canEdit)
+          IconButton(
+            tooltip: 'Edit',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => pushRoute(context,
+                HouseholdSharedEditPage(docId: copy.docId, kind: copy.kind)),
+          ),
+      ]),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
@@ -93,8 +103,11 @@ class _HouseholdSharedItemPageState extends State<HouseholdSharedItemPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                      'Shared by ${copy.ownerName}. You can look at it but not change it. '
-                      'It is not counted in your own totals.',
+                      copy.canEdit
+                          ? 'Shared by ${copy.ownerName}. You can change it with the edit button. '
+                              'It is not counted in your own totals.'
+                          : 'Shared by ${copy.ownerName}. You can look at it but not change it. '
+                              'It is not counted in your own totals.',
                       style: TextStyle(
                           fontSize: 13, color: cs.onSurface.withOpacity(0.75))),
                 ),

@@ -8,8 +8,10 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/fixedDepositStore.dart';
 import 'package:budget/struct/householdSharedCopies.dart';
+import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/financeUi.dart';
+import 'package:budget/widgets/householdSharePicker.dart';
 import 'package:budget/widgets/householdSharedSection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -189,6 +191,11 @@ class _FixedDepositsPageState extends State<FixedDepositsPage> {
             padding: const EdgeInsets.only(top: 10),
             child: FinPill('Added from SMS · tap to check', icon: Icons.sms_outlined, color: Colors.orange.shade800),
           ),
+        // Who this person shared it with (nothing for a private deposit).
+        HouseholdSharedBadge(
+            kind: kSharedKindFixedDeposit,
+            localId: fd.id,
+            padding: const EdgeInsets.only(top: 10)),
       ]),
     );
   }
@@ -214,6 +221,9 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
   int _compounding = 4;
   String _walletPk = appStateSettings["selectedWalletPk"].toString();
   bool _deduct = true;
+  // Who can see this deposit (inside a household); nothing is shared until the owner picks people.
+  late final SharingChoice _sharing =
+      SharingChoice.load(kSharedKindFixedDeposit, widget.deposit?.id);
 
   @override
   void initState() {
@@ -317,6 +327,11 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
       if (!done) return; // category not chosen: nothing saved yet
     }
     await upsertFixedDeposit(fd);
+    final String? sharingError = await _sharing.save(fd.id);
+    if (sharingError != null && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(sharingError)));
+    }
     if (mounted) popRoute(context);
   }
 
@@ -348,6 +363,7 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
       if (!done) return;
     }
     await upsertFixedDeposit(fd.copyWith(closed: true));
+    requestHouseholdSync(); // a shared deposit follows its owner's change
     if (mounted) popRoute(context);
   }
 
@@ -365,6 +381,7 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
     );
     if (ok != true) return;
     await deleteFixedDeposit(widget.deposit!.id);
+    requestHouseholdSync(); // takes the shared copy away from the other members
     if (mounted) popRoute(context);
   }
 
@@ -504,6 +521,7 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
                 ),
             ]),
           ),
+          HouseholdSharePicker(choice: _sharing),
           FilledButton(
             onPressed: _save,
             style: FilledButton.styleFrom(

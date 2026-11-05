@@ -37,6 +37,25 @@ Future<void> saveLoanTerms(String objectivePk, LoanTerms terms) async {
   );
 }
 
+/// Saves terms that a household member changed (the loan was shared with edit rights). They are saved with
+/// the time of that change, so they are not sent back as if they were a new edit made here. Only terms
+/// that already exist are changed: nothing is ever created from the household. true when saved.
+Future<bool> applyLoanTermsFromHousehold(
+    String objectivePk, LoanTerms terms, int updatedAt) async {
+  final Map<String, dynamic> all = _allLoanTerms();
+  final dynamic old = all[objectivePk];
+  if (old == null || isDeletedItem(old)) return false;
+  all[objectivePk] = stampItem(terms.toJson(), updatedAt);
+  await updateSettings(
+    "loanTerms",
+    all,
+    updateGlobalState: false,
+    pagesNeedingRefresh: [0],
+    setStateAllPageFrameworks: true,
+  );
+  return true;
+}
+
 Future<void> removeLoanTerms(String objectivePk) async {
   final Map<String, dynamic> all = _allLoanTerms();
   if (all[objectivePk] == null || isDeletedItem(all[objectivePk])) return;
