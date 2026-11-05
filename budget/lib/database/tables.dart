@@ -26,7 +26,7 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 46;
+int schemaVersionGlobal = 47;
 
 // To update and migrate the database, check the README
 
@@ -260,6 +260,9 @@ class Wallets extends Table {
   IntColumn get order => integer()();
   TextColumn get currency => text().nullable()();
   TextColumn get currencyFormat => text().nullable()();
+  // Household sharing: Firebase uid of the member who owns this account.
+  // null = created in single-user mode or before household login existed.
+  TextColumn get ownerUid => text().nullable()();
   IntColumn get decimals => integer().withDefault(Constant(2))();
   TextColumn get homePageWidgetDisplay => text()
       .nullable()
@@ -334,6 +337,12 @@ class Transactions extends Table {
       text().references(Objectives, #objectivePk).nullable()();
   TextColumn get budgetFksExclude =>
       text().map(const StringListInColumnConverter()).nullable()();
+  // Household sharing: Firebase uid of the member who created this transaction.
+  // null = created in single-user mode or before household login existed.
+  TextColumn get ownerUid => text().nullable()();
+  // Private transactions are visible only to their owner and are left out of
+  // household totals. Always false in single-user mode.
+  BoolColumn get isPrivate => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {transactionPk};
@@ -1161,6 +1170,33 @@ class FinanceDatabase extends _$FinanceDatabase {
               } catch (e) {
                 print(
                     "Migration Error: Error creating column objectives.type " +
+                        e.toString());
+              }
+            },
+            from46To47: (m, schema) async {
+              // Household sharing: who owns an account/transaction, and the
+              // private-transaction flag. Existing rows keep ownerUid = null
+              // and isPrivate = false, so single-user mode is unchanged.
+              try {
+                await m.addColumn(schema.wallets, schema.wallets.ownerUid);
+              } catch (e) {
+                print("Migration Error: Error creating column wallets.ownerUid " +
+                    e.toString());
+              }
+              try {
+                await m.addColumn(
+                    schema.transactions, schema.transactions.ownerUid);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.ownerUid " +
+                        e.toString());
+              }
+              try {
+                await m.addColumn(
+                    schema.transactions, schema.transactions.isPrivate);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.isPrivate " +
                         e.toString());
               }
             },

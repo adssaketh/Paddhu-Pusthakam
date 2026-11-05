@@ -1,0 +1,58 @@
+name: Regenerate drift files
+
+# One-off helper for the household-login work: after tables.dart changes, this
+# regenerates tables.g.dart, drift_schemas/ and schema_versions.dart with the
+# pinned Flutter version and commits them back to the same branch.
+# Remove this file once the household branch is merged.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [household-step1-data-model]
+    paths:
+      - "budget/lib/database/tables.dart"
+      - ".github/workflows/regen-drift.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: budget
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.19.6"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Generate database code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Dump schema and generate migration steps
+        run: |
+          dart run drift_dev schema dump lib/database/tables.dart drift_schemas/
+          dart run drift_dev schema steps drift_schemas/ lib/database/schema_versions.dart
+
+      - name: Analyze
+        run: flutter analyze lib/database --no-fatal-infos --no-fatal-warnings
+
+      - name: Commit generated files
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add budget/lib/database/tables.g.dart budget/lib/database/schema_versions.dart budget/drift_schemas
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Regenerate drift files for schema 47"
+            git push
+          fi
