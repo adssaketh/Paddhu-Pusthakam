@@ -33,7 +33,7 @@ import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:drift/drift.dart' hide Column;
+import 'package:drift/drift.dart' hide Column, Query;
 
 const String kPlaceholderWalletPrefix = 'hh_';
 const int _chunkSize = 300;
