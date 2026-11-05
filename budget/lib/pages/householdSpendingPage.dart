@@ -5,7 +5,6 @@ import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSpending.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/widgets/textWidgets.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

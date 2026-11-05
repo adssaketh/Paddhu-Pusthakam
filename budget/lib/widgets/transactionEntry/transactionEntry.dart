@@ -3,7 +3,6 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
-import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/listenableSelector.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
