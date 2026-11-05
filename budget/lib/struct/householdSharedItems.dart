@@ -47,6 +47,11 @@ const String kSharedOwnKey = 'householdSharedOwn';
 /// When each shared item was last sent from this phone (kept on this phone only).
 const String kSharedUploadedKey = 'householdSharedUploaded';
 
+/// The "paid so far" figure last sent for each shared loan (docId -> amount, kept on this phone only).
+/// Payments recorded as transactions change it without touching the loan itself, so it is what tells this
+/// phone that a shared loan needs sending again.
+const String kSharedPaidSentKey = 'householdSharedPaidSent';
+
 const Duration _serverTimeout = Duration(seconds: 25);
 
 Map<String, dynamic> _settingsMap(String key) {
@@ -149,6 +154,10 @@ Future<void> releaseSharedItems() async {
     await updateSettings(kSharedUploadedKey, <String, dynamic>{},
         updateGlobalState: false);
   }
+  if (_settingsMap(kSharedPaidSentKey).isNotEmpty) {
+    await updateSettings(kSharedPaidSentKey, <String, dynamic>{},
+        updateGlobalState: false);
+  }
 }
 
 /// Deletes every shared item of mine from the server. Used when I leave: it has to happen BEFORE my
@@ -199,9 +208,31 @@ Future<void> purgeStaleOwnSharedItems(
 // reading the real item
 
 class _LocalItem {
-  const _LocalItem(this.payload, this.updatedAt);
+  const _LocalItem(this.payload, this.updatedAt, {this.paid});
   final Map<String, dynamic> payload;
   final int updatedAt;
+
+  /// A loan's "paid so far" (ticked instalments plus payments recorded as transactions), or null for a
+  /// deposit or when it could not be worked out. It is also in [payload] as `paidSoFar`.
+  final double? paid;
+}
+
+double? _numOrNull(dynamic v) => v is num && v.isFinite ? v.toDouble() : null;
+
+/// The sum of the transactions linked to a loan (payments are negative), or null when it cannot be read.
+Future<double?> _linkedPaymentsSum(String objectivePk) async {
+  try {
+    final List<TransactionWallet> wallets = await database.getAllWallets();
+    final AllWallets all = AllWallets(
+      list: wallets,
+      indexedByPk: {for (final TransactionWallet w in wallets) w.walletPk: w},
+    );
+    return await database.getTotalTowardsObjective(
+            all, objectivePk, ObjectiveType.loan) ??
+        0;
+  } catch (e) {
+    return null;
+  }
 }
 
 Map<String, dynamic> _withoutBookkeeping(Map source) => {
@@ -233,13 +264,23 @@ Future<_LocalItem?> _localItem(String kind, String localId) async {
   final dynamic allTerms = appStateSettings["loanTerms"];
   final dynamic terms = allTerms is Map ? allTerms[localId] : null;
   final bool hasTerms = terms is Map && !isDeletedItem(terms);
+  // What has been paid is worked out here, on the owner's phone, because the payments recorded as
+  // transactions are not on the viewers' phones.
+  double? paid;
+  final LoanTerms? loanTerms = hasTerms ? loanTermsFor(localId) : null;
+  if (loanTerms != null) {
+    final double? linked = await _linkedPaymentsSum(localId);
+    if (linked != null) paid = loanProgress(loanTerms, linked).repaid;
+  }
   return _LocalItem(
     {
       'objective': objective,
       if (hasTerms) 'terms': _withoutBookkeeping(terms),
+      if (paid != null) 'paidSoFar': paid,
     },
     max(row.dateTimeModified?.millisecondsSinceEpoch ?? 0,
         hasTerms ? _updatedAtOf(terms) : 0),
+    paid: paid,
   );
 }
 
@@ -250,6 +291,7 @@ Future<_LocalItem?> _localItem(String kind, String localId) async {
 Future<int> countWaitingSharedItems() async {
   try {
     final Map<String, dynamic> uploaded = _settingsMap(kSharedUploadedKey);
+    final Map<String, dynamic> paidSent = _settingsMap(kSharedPaidSentKey);
     final Map<String, dynamic> all = _settingsMap(kSharedOwnKey);
     int waiting = 0;
     for (final MapEntry<String, dynamic> e in all.entries) {
@@ -266,7 +308,11 @@ Future<int> countWaitingSharedItems() async {
       }
       final int newest = max(local.updatedAt, meta.updatedAt);
       final dynamic sent = uploaded[e.key];
-      if (sent is! num || newest > sent) waiting++;
+      final double? paid = local.paid;
+      final bool paidChanged = paid != null &&
+          sharedPaidChanged(
+              sentPaid: _numOrNull(paidSent[e.key]), paid: paid);
+      if (sent is! num || newest > sent || paidChanged) waiting++;
     }
     return waiting;
   } catch (e) {
@@ -284,6 +330,7 @@ Future<void> _uploadSharedItemsLocked(
     FirebaseFirestore db, String hid, String uid) async {
   final Map<String, dynamic> own = _settingsMap(kSharedOwnKey);
   final Map<String, dynamic> uploaded = _settingsMap(kSharedUploadedKey);
+  final Map<String, dynamic> paidSent = _settingsMap(kSharedPaidSentKey);
   if (own.isEmpty && uploaded.isEmpty) return;
 
   final Set<String> memberUids = householdMemberNames.keys.toSet();
@@ -297,6 +344,7 @@ Future<void> _uploadSharedItemsLocked(
   }
 
   bool uploadedChanged = false;
+  bool paidSentChanged = false;
 
   try {
     for (final String docId in List<String>.of(own.keys)) {
@@ -308,6 +356,7 @@ Future<void> _uploadSharedItemsLocked(
           if (await _deleteServerCopy(db, hid, docId)) {
             uploaded.remove(docId);
             uploadedChanged = true;
+            if (paidSent.remove(docId) != null) paidSentChanged = true;
           }
         }
         continue;
@@ -323,6 +372,7 @@ Future<void> _uploadSharedItemsLocked(
           setOwn(docId, deletedMarker());
           uploaded.remove(docId);
           uploadedChanged = true;
+          if (paidSent.remove(docId) != null) paidSentChanged = true;
         }
         continue;
       }
@@ -343,15 +393,31 @@ Future<void> _uploadSharedItemsLocked(
         }
       }
 
-      final int newest = max(local.updatedAt, meta.updatedAt);
+      int newest = max(local.updatedAt, meta.updatedAt);
       final dynamic sent = uploaded[docId];
-      if (sent is num && newest <= sent) continue; // nothing new
+      // Payments recorded as transactions change what has been paid without touching the loan itself.
+      final double? paid = local.paid;
+      final bool paidChanged = paid != null &&
+          sharedPaidChanged(
+              sentPaid: _numOrNull(paidSent[docId]), paid: paid);
+      if (sent is num && newest <= sent && !paidChanged) continue; // nothing new
+      final bool onlyPaid = sent is num && newest <= sent;
 
       try {
         final Map<String, dynamic>? serverData =
             await _serverData(db, hid, docId);
         final int? serverU =
             serverData == null ? null : _updatedAtOf(serverData);
+        if (onlyPaid) {
+          // Only the figure changed: send it with the time of now, unless somebody's edit is waiting on
+          // the server. That edit is applied first (below) and the figure goes out on the next sync.
+          final int? pushAt = sharedPaidPushTime(
+              localNewest: newest,
+              serverUpdatedAt: serverU,
+              sentAt: (sent as num).toInt(),
+              now: DateTime.now().millisecondsSinceEpoch);
+          if (pushAt != null) newest = pushAt;
+        }
         final SharedUploadAction action = sharedUploadAction(
             localUpdatedAt: newest, serverUpdatedAt: serverU);
         if (action == SharedUploadAction.takeRemote &&
@@ -378,6 +444,10 @@ Future<void> _uploadSharedItemsLocked(
                 .timeout(_serverTimeout);
             uploaded[docId] = repairU;
             uploadedChanged = true;
+            if (paid != null) {
+              paidSent[docId] = paid;
+              paidSentChanged = true;
+            }
           }
           continue;
         }
@@ -390,6 +460,10 @@ Future<void> _uploadSharedItemsLocked(
                 'payload': local.payload,
               })
               .timeout(_serverTimeout);
+          if (paid != null) {
+            paidSent[docId] = paid;
+            paidSentChanged = true;
+          }
         }
         uploaded[docId] = newest;
         uploadedChanged = true;
@@ -420,6 +494,10 @@ Future<void> _uploadSharedItemsLocked(
     }
     if (uploadedChanged) {
       await updateSettings(kSharedUploadedKey, uploaded,
+          updateGlobalState: false);
+    }
+    if (paidSentChanged) {
+      await updateSettings(kSharedPaidSentKey, paidSent,
           updateGlobalState: false);
     }
   }

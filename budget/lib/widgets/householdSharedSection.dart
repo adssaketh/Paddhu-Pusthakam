@@ -190,7 +190,7 @@ class _HouseholdSharedSectionState extends State<HouseholdSharedSection> {
     LoanInstalment? next;
     LoanProgress? progress;
     if (terms != null) {
-      progress = loanProgress(terms, 0);
+      progress = sharedLoanProgress(copy.payload, terms);
       for (final LoanInstalment i in buildSchedule(terms)) {
         if (!terms.paidInstalments.contains(i.number)) {
           next = i;
@@ -217,7 +217,7 @@ class _HouseholdSharedSectionState extends State<HouseholdSharedSection> {
           FinProgress(progress.fraction, height: 6, color: finColorFor(name)),
           const SizedBox(height: 8),
           Text(
-              '${terms.annualRatePct}% a year · ${(progress.fraction * 100).round()}% ticked as paid'
+              '${terms.annualRatePct}% a year · ${(progress.fraction * 100).round()}% ${sharedLoanPaidSoFar(copy.payload) == null ? 'ticked as paid' : 'paid'}'
               '${next == null ? '' : ' · next EMI ${_day(next.dueDate)}'}',
               style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
         ],

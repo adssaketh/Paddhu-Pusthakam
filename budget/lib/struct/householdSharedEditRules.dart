@@ -156,7 +156,37 @@ Map<String, dynamic> sharedLoanPayloadFrom({
   };
   objective['name'] = name.trim();
   objective['amount'] = sharedLoanAmount(terms);
-  return {'objective': objective, 'terms': terms.toJson()};
+  // The owner's figure of what has been paid stays until the owner's phone sends a new one.
+  final dynamic paid = oldPayload['paidSoFar'];
+  return {
+    'objective': objective,
+    'terms': terms.toJson(),
+    if (paid is num && paid.isFinite) 'paidSoFar': paid,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// what has been paid (owner's phone)
+
+/// True when the figure for "paid so far" differs from what was last sent ([sentPaid] is null when
+/// nothing was sent yet). Cents do not count.
+bool sharedPaidChanged({required double? sentPaid, required double paid}) =>
+    sentPaid == null || (paid - sentPaid).abs() > 0.005;
+
+/// The time to send a changed "paid so far" with, when nothing else about the item changed: now, but not
+/// earlier than the item's own newest change. Null when somebody else's edit is waiting on the server
+/// (newer than what this phone last sent or applied): that edit is applied first, and the figure goes
+/// out on the next sync. Otherwise the new figure would overwrite it.
+int? sharedPaidPushTime({
+  required int localNewest,
+  required int? serverUpdatedAt,
+  required int? sentAt,
+  required int now,
+}) {
+  if (serverUpdatedAt != null && (sentAt == null || serverUpdatedAt > sentAt)) {
+    return null;
+  }
+  return max(localNewest, now);
 }
 
 // ---------------------------------------------------------------------------

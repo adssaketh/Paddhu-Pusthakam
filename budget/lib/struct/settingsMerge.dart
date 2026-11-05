@@ -34,6 +34,8 @@ const Set<String> kSettingsNotSynced = {
   'householdShowBalances', 'householdView', 'householdCanDelete', 'householdMemberNames',
   // when each shared loan or deposit was last sent from this phone
   'householdSharedUploaded',
+  // the "paid so far" figure last sent for each shared loan (this phone only)
+  'householdSharedPaidSent',
   // copies of other members' shared loans and deposits (they are not this person's own items)
   'householdSharedCopies',
 };

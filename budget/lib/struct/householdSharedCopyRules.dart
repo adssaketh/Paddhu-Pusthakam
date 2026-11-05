@@ -55,6 +55,23 @@ bool sharedLoanArchived(Map payload) {
 /// The account the terms point at lives on the owner's phone and is ignored here.
 LoanTerms? sharedLoanTerms(Map payload) => LoanTerms.fromJson(payload['terms']);
 
+/// What the owner's phone says has been paid so far (ticked instalments plus payments recorded as
+/// transactions), or null when the payload has no usable figure (an older version of the app sent it).
+double? sharedLoanPaidSoFar(Map payload) {
+  final dynamic v = payload['paidSoFar'];
+  if (v is! num || !v.isFinite || v < 0 || v > 1e12) return null;
+  return v.toDouble();
+}
+
+/// How far a shared loan is paid. Uses the owner's own figure when there is one; otherwise only the
+/// ticked instalments are known (the payments the owner recorded as transactions are not on this phone).
+LoanProgress sharedLoanProgress(Map payload, LoanTerms terms) {
+  final double? paid = sharedLoanPaidSoFar(payload);
+  return paid == null
+      ? loanProgress(terms, 0)
+      : LoanProgress(summarize(terms).totalPayable, paid);
+}
+
 /// The deposit in a copy, or null when it cannot be read. The account it points at lives on the owner's
 /// phone, so it is dropped.
 FixedDeposit? sharedDeposit(Map payload) {

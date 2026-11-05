@@ -24,7 +24,7 @@ Loans and fixed deposits are private by default. The person who owns one decides
 
 - **Who sees it:** in the loan terms page or the fixed deposit form, just before Save, the owner ticks the members who may see the item. Nothing is shared until the owner does this, and an empty list makes the item private again.
 - **Who edits it:** a "Members can edit" switch (off by default) lets the ticked members change the item's details. Only the owner deletes an item or changes who sees it or whether others may edit.
-- **What viewers see:** shared items from other people are listed in a separate **Household** section (Fixed deposits page, and the loans page), with a detail page. They are never added to the viewer's net worth or loan totals. A viewer's loan card shows "paid" from the ticked instalments only, because the linked payment transactions are not on the viewer's phone.
+- **What viewers see:** shared items from other people are listed in a separate **Household** section (Fixed deposits page, and the loans page), with a detail page. They are never added to the viewer's net worth or loan totals. A viewer's loan card shows "Paid so far": the owner's phone works out ticked instalments plus the payments recorded as transactions and sends the figure (`paidSoFar` in the loan payload) whenever it changes, so it is as of the owner's last sync. Nothing a viewer sends is used for it. If the owner's phone is on an older version that sends no figure, only the ticked instalments are counted.
 - **Which loans:** only instalment loans (the ones with a loan terms page) can be shared. A plain loan without terms has nothing a viewer could see.
 - **Linked transactions:** loan payments and deposit interest keep their own transaction privacy. Sharing an item does not share them.
 - **Where it is stored:** one Firestore document per item, `households/{h}/sharedItems/{kind-ownerUid-localId}`, with `kind` (`loan` or `fd`), `ownerUid`, `localId`, `visibleTo` (uids besides the owner, at most 7), `membersCanEdit`, `_u` (milliseconds, newer wins) and `payload`. The owner's phone keeps who sees what in the setting `householdSharedOwn` and what was last sent in `householdSharedUploaded` (this phone only). Other people's items are kept on a phone in `householdSharedCopies`, which is not copied between one person's own phones.
@@ -49,6 +49,8 @@ The owner cannot leave without handing over first. Deleting a household is not s
 4. **Indexes:** none needed. All queries use equality filters only (`array-contains` on `visibleTo` needs no composite index).
 5. Test with two Google accounts: create a household on one, join with the code on the other, add a transaction on each.
 6. Test sharing: on phone A open a fixed deposit, tick phone B's person, switch "Members can edit" on, Save. On phone B open Fixed deposits > Household > the deposit > Edit, change the note, Save. On phone A the note changes within a few seconds. Repeat with a loan (tick an instalment). Then switch editing off on A and check that B's Edit button is gone.
+
+The "paid so far" figure needs no rules change: the rules only require the payload to be a map.
 
 The rules have to be published again after the ownership-transfer update (the `households` update rule changed) and after the loans and deposits sharing update (the new `sharedItems` rule). One publish of the current file covers both.
 
@@ -80,5 +82,5 @@ They cover the merge logic, visibility, edit and delete rules, hidden accounts, 
 - Shared items: if the owner's phone applies a member's edit while the owner has that loan or deposit open in an editor, the open editor does not refresh.
 - Shared items: the viewer's Household list does not mark items they may edit (only the detail page shows the Edit button).
 - Shared items: plain loans without terms cannot be shared.
-- Shared items: a viewer sees a loan's "paid" figure from the ticked instalments only, not from the owner's real payments.
+- Shared items: the "paid so far" figure of a loan is only as new as the owner's last sync, and a viewer's own tick of an instalment shows in it only after the owner's phone has applied the edit and sent a new figure.
 - Shared items: the items of a removed person stay on the server (hidden) until that person joins again, because the household owner cannot list them.

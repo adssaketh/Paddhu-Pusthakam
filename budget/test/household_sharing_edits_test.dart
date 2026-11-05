@@ -164,6 +164,25 @@ void main() {
   check(sharedLoanPayloadFrom(oldPayload: {}, name: 'x', terms: fromViewer).containsKey('objective'),
       'a copy without a row still produces a payload');
 
+  // ---- what has been paid: worked out on the owner's phone, kept when a viewer edits
+  final Map<String, dynamic> withPaid = {...loanPayload(), 'paidSoFar': 45000.5};
+  final Map<String, dynamic> editedWithPaid =
+      sharedLoanPayloadFrom(oldPayload: withPaid, name: 'Car loan', terms: fromViewer);
+  check(editedWithPaid['paidSoFar'] == 45000.5, "a viewer's edit keeps the owner's figure until a new one comes");
+  check(!out.containsKey('paidSoFar'), 'a copy without a figure stays without one');
+  check(sharedLoanToApply(editedWithPaid) != null, 'the extra figure does not make an edit unusable');
+  check(sharedPaidChanged(sentPaid: null, paid: 0), 'a figure that was never sent counts as changed');
+  check(!sharedPaidChanged(sentPaid: 100.0, paid: 100.004), 'a difference of less than a cent is not a change');
+  check(sharedPaidChanged(sentPaid: 100.0, paid: 110), 'a new payment is a change');
+  check(sharedPaidPushTime(localNewest: 100, serverUpdatedAt: 100, sentAt: 100, now: 500) == 500,
+      'a changed figure is sent with the time of now');
+  check(sharedPaidPushTime(localNewest: 900, serverUpdatedAt: 900, sentAt: 900, now: 500) == 900,
+      'never earlier than the item\'s own newest change, even with a clock that is behind');
+  check(sharedPaidPushTime(localNewest: 100, serverUpdatedAt: null, sentAt: 100, now: 500) == 500,
+      'a server copy that is gone is sent again');
+  check(sharedPaidPushTime(localNewest: 100, serverUpdatedAt: 300, sentAt: 100, now: 500) == null,
+      "a member's edit that is waiting goes first, the figure does not overwrite it");
+
   // ---- the viewer may only write what the owner allowed (the same check the server rules make)
   final Set<String> members = {'owner', 'me', 'dad'};
   final SharedItemMeta allowed = SharedItemMeta(

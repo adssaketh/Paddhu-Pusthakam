@@ -114,6 +114,36 @@ void main() {
   check(sharedDeposit({'bank': 'Axis Bank'}) == null, 'a deposit without dates is not shown');
   check(sharedDeposit({}) == null, 'an empty payload is not a deposit');
 
+  // ---- what has been paid on a loan someone shared
+  final LoanTerms paidTerms = LoanTerms(
+    principal: 120000,
+    annualRatePct: 15,
+    months: 12,
+    emi: 10830,
+    firstEmiDate: DateTime(2026, 1, 5),
+    paidInstalments: {1, 2},
+    walletPk: 'owners-account',
+    note: 'owner note',
+  );
+  final Map<String, dynamic> loanOnly = {
+    'objective': {'name': 'Car loan'},
+    'terms': paidTerms.toJson(),
+  };
+  final Map<String, dynamic> loanWithPaid = {...loanOnly, 'paidSoFar': 45000};
+  check(sharedLoanPaidSoFar(loanOnly) == null, 'no figure from the owner means none is shown');
+  check(sharedLoanPaidSoFar(loanWithPaid) == 45000, "the owner's figure is read");
+  check(sharedLoanPaidSoFar({'paidSoFar': -5}) == null, 'a negative figure is not used');
+  check(sharedLoanPaidSoFar({'paidSoFar': 'lots'}) == null, 'a figure that is not a number is not used');
+  check(sharedLoanPaidSoFar({'paidSoFar': double.nan}) == null, 'a figure that is not finite is not used');
+  final LoanProgress ticksOnly = sharedLoanProgress(loanOnly, paidTerms);
+  final LoanProgress fromOwner = sharedLoanProgress(loanWithPaid, paidTerms);
+  check(ticksOnly.repaid == loanProgress(paidTerms, 0).repaid,
+      'without a figure only the ticked instalments are counted');
+  check(fromOwner.repaid == 45000, "with the owner's figure that is what has been paid");
+  check(fromOwner.totalPayable == ticksOnly.totalPayable, 'the total to pay does not depend on the figure');
+  check(isSyncedSettingKey('householdSharedUploaded') == false && !isSyncedSettingKey('householdSharedPaidSent'),
+      'what this phone sent is not copied to my other phones');
+
   // ---- copies stay out of everything that is synced or totalled
   check(!isSyncedSettingKey('householdSharedCopies'),
       "copies of other people's items are not copied to my other phones");

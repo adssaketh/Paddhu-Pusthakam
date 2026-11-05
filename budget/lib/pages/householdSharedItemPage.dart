@@ -191,8 +191,9 @@ class _HouseholdSharedItemPageState extends State<HouseholdSharedItemPage> {
       ];
     }
     final LoanSummary summary = summarize(terms);
-    final LoanProgress progress = loanProgress(terms, 0);
+    final LoanProgress progress = sharedLoanProgress(copy.payload, terms);
     final List<LoanInstalment> schedule = buildSchedule(terms);
+    final bool hasPaidFigure = sharedLoanPaidSoFar(copy.payload) != null;
     final ColorScheme cs = Theme.of(context).colorScheme;
     return [
       FinCard(
@@ -207,14 +208,17 @@ class _HouseholdSharedItemPageState extends State<HouseholdSharedItemPage> {
       ),
       FinCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _row(context, 'Paid (ticked instalments)', money(progress.repaid)),
+          _row(context, hasPaidFigure ? 'Paid so far' : 'Paid (ticked instalments)',
+              money(progress.repaid)),
           const SizedBox(height: 6),
           FinProgress(progress.fraction,
               height: 6, color: finColorFor(sharedLoanName(copy.payload))),
           const SizedBox(height: 8),
           Text(
-              'This only counts the instalments ${copy.ownerName} ticked as paid. '
-              'Payments they recorded as transactions are not shown here.',
+              hasPaidFigure
+                  ? 'Ticked instalments and payments ${copy.ownerName} recorded, as of their last update.'
+                  : 'This only counts the instalments ${copy.ownerName} ticked as paid. '
+                      'Payments they recorded as transactions are not shown here.',
               style: TextStyle(
                   fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
         ]),
