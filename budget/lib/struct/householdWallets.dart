@@ -13,7 +13,6 @@
 // The pure helpers at the top have no database or Flutter dependencies, so they can be
 // checked with `dart run`.
 
-import 'package:budget/struct/householdWalletRules.dart';
 import 'package:budget/struct/settings.dart';
 
 export 'package:budget/struct/householdWalletRules.dart';
