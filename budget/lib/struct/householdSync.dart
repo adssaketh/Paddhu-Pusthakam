@@ -26,6 +26,8 @@ import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdDownload.dart';
 import 'package:budget/struct/householdMembers.dart';
 import 'package:budget/struct/householdService.dart';
+import 'package:budget/struct/householdSharedCopies.dart';
+import 'package:budget/struct/householdSharedItems.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:drift/drift.dart' hide Column;
@@ -72,6 +74,7 @@ void startHouseholdSync() {
         database.transactions,
         database.deleteLogs,
         database.categories,
+        database.objectives,
       })
       .watch()
       .listen((_) => _scheduleSync());
@@ -89,6 +92,13 @@ void stopHouseholdSync() {
   _debounce = null;
   _periodic = null;
   _watch = null;
+}
+
+/// Asks for a sync soon (a few seconds from now). Used after a loan or fixed deposit was changed or
+/// its sharing was set, because those live in settings, which the table watcher does not see.
+void requestHouseholdSync() {
+  if (!isInHousehold || !householdSyncReady) return;
+  _scheduleSync();
 }
 
 void _scheduleSync() {
@@ -154,6 +164,8 @@ Future<void> releaseHouseholdTransactions() async {
   await updateSettings("householdCategoriesHash", "",
       updateGlobalState: false);
   await clearHouseholdMemberNames();
+  await releaseSharedItems();
+  await releaseSharedCopies();
 }
 
 /// Matches this phone's sync to the household state (call after the household was re-checked).
@@ -214,6 +226,15 @@ Future<String?> syncHouseholdNow() async {
     await _uploadCategories(db, hid);
     await _uploadTransactions(db, hid, uid);
     await _uploadDeletions(db, hid);
+
+    // Shared loans and deposits. Network trouble queues them for the next round; anything else is
+    // logged and does not count as a failed sync of the transactions.
+    try {
+      await uploadSharedItems(db, hid, uid);
+    } catch (e) {
+      print("Household shared items: ${e.toString()}");
+      if (e is TimeoutException) rethrow;
+    }
 
     await updateSettings("householdLastSync", DateTime.now().toIso8601String(),
         updateGlobalState: false);

@@ -32,10 +32,16 @@ const Set<String> kSettingsNotSynced = {
   'householdId', 'householdName', 'householdRole', 'householdNickname',
   'householdSyncReady', 'householdDeleteCursor', 'householdCategoriesHash', 'householdLastSync',
   'householdShowBalances', 'householdView', 'householdCanDelete', 'householdMemberNames',
+  // when each shared loan or deposit was last sent from this phone
+  'householdSharedUploaded',
+  // the "paid so far" figure last sent for each shared loan (this phone only)
+  'householdSharedPaidSent',
+  // copies of other members' shared loans and deposits (they are not this person's own items)
+  'householdSharedCopies',
 };
 
 /// Settings whose value is a collection of items, merged item by item.
-const Set<String> kSettingsCollections = {'loanTerms', 'fixedDeposits', 'cardDues'};
+const Set<String> kSettingsCollections = {'loanTerms', 'fixedDeposits', 'cardDues', 'householdSharedOwn'};
 
 bool isSyncedSettingKey(String key) => !kSettingsNotSynced.contains(key);
 

@@ -58,6 +58,34 @@ bool _sameFields(Map old, Map json) {
   return true;
 }
 
+/// Saves a deposit that a household member changed (the deposit was shared with edit rights). It is saved
+/// with the time of that change, so it is not sent back as if it were a new edit made here. Only a deposit
+/// that already exists is changed: nothing is ever created from the household. true when saved.
+Future<bool> applyFixedDepositFromHousehold(FixedDeposit fd, int updatedAt) async {
+  final dynamic stored = appStateSettings["fixedDeposits"];
+  if (stored is! List) return false;
+  bool found = false;
+  final List<dynamic> items = [];
+  for (final dynamic j in stored) {
+    if (j is Map && '${j['id']}' == fd.id && !isDeletedItem(j)) {
+      items.add(stampItem(fd.toJson(), updatedAt));
+      found = true;
+    } else {
+      items.add(j);
+    }
+  }
+  if (!found) return false;
+  await updateSettings(
+    "fixedDeposits",
+    items,
+    updateGlobalState: false,
+    pagesNeedingRefresh: [0],
+    setStateAllPageFrameworks: true,
+  );
+  await scheduleFixedDepositReminders();
+  return true;
+}
+
 /// Adds the deposit unless the same one is already there. true when it was added.
 Future<bool> addFixedDepositIfNew(FixedDeposit fd) async {
   final List<FixedDeposit> all = loadFixedDeposits();

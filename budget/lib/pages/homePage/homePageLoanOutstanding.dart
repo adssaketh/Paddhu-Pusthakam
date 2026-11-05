@@ -5,10 +5,12 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/loanTermsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/loanSchedule.dart';
 import 'package:budget/struct/loanTerms.dart';
 import 'package:budget/widgets/financeCollapsible.dart';
 import 'package:budget/widgets/financeUi.dart';
+import 'package:budget/widgets/householdSharePicker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -122,6 +124,11 @@ class _LoanLine extends StatelessWidget {
                     '${terms.annualRatePct}% a year · ${(p.fraction * 100).round()}% repaid'
                     '${next == null ? '' : ' · next EMI ${_day(next.dueDate)}'}',
                     style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.6))),
+                // Who this person shared the loan with (nothing for a private loan).
+                HouseholdSharedBadge(
+                    kind: kSharedKindLoan,
+                    localId: loan.objectivePk,
+                    padding: const EdgeInsets.only(top: 4)),
               ]),
             ),
           ),
