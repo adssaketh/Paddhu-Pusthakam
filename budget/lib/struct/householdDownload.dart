@@ -34,6 +34,7 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdMembers.dart';
+import 'package:budget/struct/householdMergeRules.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/householdView.dart';
@@ -43,6 +44,8 @@ import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:drift/drift.dart' hide Column, Query;
 
+export 'package:budget/struct/householdMergeRules.dart';
+
 const int _chunkSize = 300;
 const Duration _firstSnapshotWait = Duration(seconds: 10);
 const Duration _retryDelay = Duration(minutes: 2);
@@ -50,17 +53,6 @@ const String _fallbackMemberName = "Member";
 
 // ---------------------------------------------------------------------------
 // small pure helpers (kept free of the database so they can be tested with `dart run`)
-
-/// True when [remote] is a later edit than [local]. A missing time counts as the oldest.
-bool householdRemoteIsNewer(DateTime? remote, DateTime? local) {
-  if (remote == null) return false;
-  if (local == null) return true;
-  return remote.isAfter(local);
-}
-
-/// True when [ownerUid] belongs to somebody else in the household (not this person, not "personal").
-bool householdIsForeignOwner(String? ownerUid, String myUid) =>
-    ownerUid != null && ownerUid != "" && ownerUid != myUid;
 
 // ---------------------------------------------------------------------------
 // start / stop
@@ -242,6 +234,11 @@ Future<void> _applyMembers(
     if (doc.id == myUid) {
       // The owner's "can delete others' transactions" permission for this person.
       await saveHouseholdMemberCanDelete(doc.data()['canDelete'] == true);
+      // Ownership can change while the app is open (hand-over): follow it right away.
+      final String role = (doc.data()['role'] ?? "member").toString();
+      if ((appStateSettings["householdRole"] ?? "").toString() != role) {
+        await updateSettings("householdRole", role, updateGlobalState: false);
+      }
     }
   }
   _memberNames = names;

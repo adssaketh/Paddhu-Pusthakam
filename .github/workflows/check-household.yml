@@ -51,12 +51,26 @@ jobs:
           grep -iE "household|accountsPage|defaultPreferences|settingsMerge" ../analyze_full.txt > ../report_touched.txt || true
           tail -3 ../analyze_full.txt > ../report_summary.txt || true
 
+      - name: Household tests
+        if: steps.gen.outputs.stale != 'true'
+        run: |
+          : > ../report_tests.txt
+          for t in test/household_*_test.dart test/settings_merge_test.dart; do
+            echo "== $t" >> ../report_tests.txt
+            if dart run "$t" >> ../report_tests.txt 2>&1; then
+              echo "PASS $t" >> ../report_tests.txt
+            else
+              echo "FAIL $t" >> ../report_tests.txt
+            fi
+          done
+          grep -E "^(PASS|FAIL) " ../report_tests.txt > ../report_tests_summary.txt || true
+
       - name: Publish report
         if: always() && steps.gen.outputs.stale != 'true'
         working-directory: .
         run: |
           mkdir /tmp/report
-          cp report_errors.txt report_touched.txt report_summary.txt /tmp/report/ || true
+          cp report_errors.txt report_touched.txt report_summary.txt report_tests.txt report_tests_summary.txt /tmp/report/ || true
           echo "$GITHUB_SHA" > /tmp/report/commit.txt
           cd /tmp/report
           git init -q

@@ -222,6 +222,14 @@ class _HouseholdPageState extends State<HouseholdPage> {
             ),
             const SizedBox(height: 15),
             Button(
+              label: "Make owner",
+              onTap: () {
+                popRoute(context);
+                _confirmTransfer(member);
+              },
+            ),
+            const SizedBox(height: 10),
+            Button(
               label: "Remove from household",
               onTap: () {
                 popRoute(context);
@@ -233,6 +241,25 @@ class _HouseholdPageState extends State<HouseholdPage> {
       ),
     );
     await _reload();
+  }
+
+  void _confirmTransfer(HouseholdMember member) {
+    openPopup(
+      context,
+      title: "Make ${member.nickname} the owner?",
+      description:
+          "${member.nickname} will be able to invite and remove people and change the household settings. You become a normal member. Your current invite code is cancelled.",
+      onSubmitLabel: "Make owner",
+      onCancelLabel: "Cancel",
+      onSubmit: () {
+        popRoute(context);
+        _run(() => transferHouseholdOwnership(member.uid),
+            success: "${member.nickname} is now the owner");
+      },
+      onCancel: () {
+        popRoute(context);
+      },
+    );
   }
 
   void _confirmRemove(HouseholdMember member) {

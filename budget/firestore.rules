@@ -8,6 +8,13 @@ service cloud.firestore {
     function isMember(h) { return signedIn() && exists(mPath(h)); }
     function me(h) { return get(mPath(h)).data; }
     function isOwner(h) { return isMember(h) && me(h).role == 'owner'; }
+    function memPath(h, u) { return /databases/$(db)/documents/households/$(h)/members/$(u); }
+    // Hand-over: the new owner is a member, and in the same batch gets the owner role while the old owner becomes a member
+    function handsOver(h) {
+      return exists(memPath(h, request.resource.data.ownerId))
+        && getAfter(memPath(h, request.resource.data.ownerId)).data.role == 'owner'
+        && getAfter(mPath(h)).data.role == 'member';
+    }
 
     // Personal data (accounts, settings, loans, deposits, pending, learned): owner only
     match /users/{uid}/{document=**} {
@@ -28,7 +35,8 @@ service cloud.firestore {
     match /households/{h} {
       allow read: if isMember(h);
       allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isOwner(h) && request.resource.data.ownerId == resource.data.ownerId;
+      allow update: if isOwner(h)
+        && (request.resource.data.ownerId == resource.data.ownerId || handsOver(h));
       allow delete: if isOwner(h);
 
       match /members/{m} {

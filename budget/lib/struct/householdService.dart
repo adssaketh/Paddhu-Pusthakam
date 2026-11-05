@@ -14,15 +14,14 @@
 import 'dart:math';
 
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdOwnership.dart';
 import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Soft limit. Firestore rules cannot count members, so it is checked when the owner
-/// creates an invite code.
-const int kMaxHouseholdMembers = 6;
+export 'package:budget/struct/householdOwnership.dart' show kMaxHouseholdMembers;
 
 // Characters without look-alikes (no 0/O, 1/I).
 const String _inviteAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -323,11 +322,11 @@ Future<String?> joinHousehold({
   }
 }
 
-/// A member leaves. The owner cannot leave (ownership transfer comes later).
+/// A member leaves. The owner must hand the household over first.
 Future<String?> leaveHousehold() async {
   if (!isInHousehold) return null;
   if (isHouseholdOwner) {
-    return "As the owner you can't leave yet. Remove the other members first.";
+    return "As the owner you can't leave. Make another member the owner first.";
   }
   final FirebaseFirestore? db = await _db();
   if (db == null) return _offlineMessage;
@@ -352,6 +351,39 @@ Future<String?> removeHouseholdMember(String memberUid) async {
   if (db == null) return _offlineMessage;
   try {
     await db.doc('households/$householdId/members/$memberUid').delete();
+    return null;
+  } catch (e) {
+    return _friendlyError(e);
+  }
+}
+
+/// The owner hands the household to another member. The old owner becomes a normal member.
+/// One batch, so the household never ends up with two owners or none.
+Future<String?> transferHouseholdOwnership(String newOwnerUid) async {
+  final FirebaseFirestore? db = await _db();
+  if (db == null) return _offlineMessage;
+  try {
+    final String uid = _uid;
+    final membersQuery = await db.collection('households/$householdId/members').get();
+    final String? problem = householdTransferError(
+      iAmOwner: isHouseholdOwner,
+      myUid: uid,
+      newOwnerUid: newOwnerUid,
+      memberUids: membersQuery.docs.map((d) => d.id).toSet(),
+    );
+    if (problem != null) return problem;
+    // Invite codes belong to the owner who made them: cancel mine, the new owner makes a new one.
+    final String? revokeError = await revokeInviteCode();
+    if (revokeError != null) return revokeError;
+    final String base = 'households/$householdId';
+    final WriteBatch batch = db.batch();
+    batch.update(db.doc('$base/members/$newOwnerUid'),
+        {'role': 'owner', 'canDelete': true});
+    batch.update(db.doc(base), {'ownerId': newOwnerUid});
+    batch.update(db.doc('$base/members/$uid'),
+        {'role': 'member', 'canDelete': false});
+    await batch.commit();
+    await updateSettings("householdRole", "member", updateGlobalState: false);
     return null;
   } catch (e) {
     return _friendlyError(e);
@@ -408,7 +440,7 @@ Future<HouseholdResult<String>> createInviteCode() async {
   try {
     final String uid = _uid;
     final members = await db.collection('households/$householdId/members').get();
-    if (members.docs.length >= kMaxHouseholdMembers) {
+    if (householdMemberLimitReached(members.docs.length)) {
       return const HouseholdResult.fail(
           "A household can have up to $kMaxHouseholdMembers people.");
     }
