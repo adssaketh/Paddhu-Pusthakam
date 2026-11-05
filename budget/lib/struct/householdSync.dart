@@ -26,6 +26,7 @@ import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdDownload.dart';
 import 'package:budget/struct/householdMembers.dart';
 import 'package:budget/struct/householdService.dart';
+import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/householdSharedItems.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
@@ -164,6 +165,7 @@ Future<void> releaseHouseholdTransactions() async {
       updateGlobalState: false);
   await clearHouseholdMemberNames();
   await releaseSharedItems();
+  await releaseSharedCopies();
 }
 
 /// Matches this phone's sync to the household state (call after the household was re-checked).

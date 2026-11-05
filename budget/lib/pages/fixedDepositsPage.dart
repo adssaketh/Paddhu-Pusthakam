@@ -7,8 +7,10 @@ import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/fixedDepositStore.dart';
+import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/financeUi.dart';
+import 'package:budget/widgets/householdSharedSection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -130,6 +132,8 @@ class _FixedDepositsPageState extends State<FixedDepositsPage> {
                     ]),
                   ),
             ],
+            // Deposits other household members shared with this person: a list of its own, never in the totals above.
+            const HouseholdSharedSection(kind: kSharedKindFixedDeposit),
           ],
         ),
       ),

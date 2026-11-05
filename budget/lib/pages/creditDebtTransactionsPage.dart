@@ -7,9 +7,11 @@ import 'package:budget/pages/editObjectivesPage.dart';
 import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/pages/upcomingOverdueTransactionsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
+import 'package:budget/widgets/householdSharedSection.dart';
 import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/extraInfoBoxes.dart';
 import 'package:budget/widgets/fab.dart';
@@ -173,6 +175,13 @@ class CreditDebtTransactionsState extends State<CreditDebtTransactions>
         showAddButton: true,
         searchFor: searchValue,
         isIncome: isCredit,
+      ),
+      // Loans other household members shared with this person: a list of its own, never in the totals.
+      SliverToBoxAdapter(
+        child: HouseholdSharedSection(
+          kind: kSharedKindLoan,
+          padding: EdgeInsetsDirectional.fromSTEB(16, 8, 16, 90),
+        ),
       ),
     ];
 
@@ -400,6 +409,13 @@ class CreditDebtTransactionsState extends State<CreditDebtTransactions>
                     slivers: [
                       sliverAppBar,
                       ...loanInfoAppBar,
+                      // This person has no long-term loans of their own, but others may have shared some.
+                      SliverToBoxAdapter(
+                        child: HouseholdSharedSection(
+                          kind: kSharedKindLoan,
+                          padding: EdgeInsetsDirectional.fromSTEB(16, 8, 16, 8),
+                        ),
+                      ),
                       ...oneTimeLoanList(false)
                     ],
                   );
