@@ -29,7 +29,6 @@ import 'package:budget/struct/householdSharingRules.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/settingsMerge.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:drift/drift.dart' hide Column, Query;
 
 /// The owner's choices about who sees what (merged between the person's own phones).
 const String kSharedOwnKey = 'householdSharedOwn';
