@@ -2175,6 +2175,12 @@ class $TransactionsTable extends Transactions
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_private" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _householdSyncedAtMeta =
+      const VerificationMeta('householdSyncedAt');
+  @override
+  late final GeneratedColumn<DateTime> householdSyncedAt =
+      GeneratedColumn<DateTime>('household_synced_at', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         transactionPk,
@@ -2209,7 +2215,8 @@ class $TransactionsTable extends Transactions
         objectiveLoanFk,
         budgetFksExclude,
         ownerUid,
-        isPrivate
+        isPrivate,
+        householdSyncedAt
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2384,6 +2391,12 @@ class $TransactionsTable extends Transactions
       context.handle(_isPrivateMeta,
           isPrivate.isAcceptableOrUnknown(data['is_private']!, _isPrivateMeta));
     }
+    if (data.containsKey('household_synced_at')) {
+      context.handle(
+          _householdSyncedAtMeta,
+          householdSyncedAt.isAcceptableOrUnknown(
+              data['household_synced_at']!, _householdSyncedAtMeta));
+    }
     return context;
   }
 
@@ -2469,6 +2482,8 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.string, data['${effectivePrefix}owner_uid']),
       isPrivate: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_private'])!,
+      householdSyncedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}household_synced_at']),
     );
   }
 
@@ -2536,6 +2551,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final List<String>? budgetFksExclude;
   final String? ownerUid;
   final bool isPrivate;
+  final DateTime? householdSyncedAt;
   const Transaction(
       {required this.transactionPk,
       this.pairedTransactionFk,
@@ -2569,7 +2585,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       this.objectiveLoanFk,
       this.budgetFksExclude,
       this.ownerUid,
-      required this.isPrivate});
+      required this.isPrivate,
+      this.householdSyncedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -2660,6 +2677,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       map['owner_uid'] = Variable<String>(ownerUid);
     }
     map['is_private'] = Variable<bool>(isPrivate);
+    if (!nullToAbsent || householdSyncedAt != null) {
+      map['household_synced_at'] = Variable<DateTime>(householdSyncedAt);
+    }
     return map;
   }
 
@@ -2743,6 +2763,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ? const Value.absent()
           : Value(ownerUid),
       isPrivate: Value(isPrivate),
+      householdSyncedAt: householdSyncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(householdSyncedAt),
     );
   }
 
@@ -2796,6 +2819,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           serializer.fromJson<List<String>?>(json['budgetFksExclude']),
       ownerUid: serializer.fromJson<String?>(json['ownerUid']),
       isPrivate: serializer.fromJson<bool>(json['isPrivate']),
+      householdSyncedAt:
+          serializer.fromJson<DateTime?>(json['householdSyncedAt']),
     );
   }
   @override
@@ -2844,6 +2869,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'budgetFksExclude': serializer.toJson<List<String>?>(budgetFksExclude),
       'ownerUid': serializer.toJson<String?>(ownerUid),
       'isPrivate': serializer.toJson<bool>(isPrivate),
+      'householdSyncedAt': serializer.toJson<DateTime?>(householdSyncedAt),
     };
   }
 
@@ -2880,7 +2906,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           Value<String?> objectiveLoanFk = const Value.absent(),
           Value<List<String>?> budgetFksExclude = const Value.absent(),
           Value<String?> ownerUid = const Value.absent(),
-          bool? isPrivate}) =>
+          bool? isPrivate,
+          Value<DateTime?> householdSyncedAt = const Value.absent()}) =>
       Transaction(
         transactionPk: transactionPk ?? this.transactionPk,
         pairedTransactionFk: pairedTransactionFk.present
@@ -2942,6 +2969,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
             : this.budgetFksExclude,
         ownerUid: ownerUid.present ? ownerUid.value : this.ownerUid,
         isPrivate: isPrivate ?? this.isPrivate,
+        householdSyncedAt: householdSyncedAt.present
+            ? householdSyncedAt.value
+            : this.householdSyncedAt,
       );
   @override
   String toString() {
@@ -2981,7 +3011,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('objectiveLoanFk: $objectiveLoanFk, ')
           ..write('budgetFksExclude: $budgetFksExclude, ')
           ..write('ownerUid: $ownerUid, ')
-          ..write('isPrivate: $isPrivate')
+          ..write('isPrivate: $isPrivate, ')
+          ..write('householdSyncedAt: $householdSyncedAt')
           ..write(')'))
         .toString();
   }
@@ -3020,7 +3051,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         objectiveLoanFk,
         budgetFksExclude,
         ownerUid,
-        isPrivate
+        isPrivate,
+        householdSyncedAt
       ]);
   @override
   bool operator ==(Object other) =>
@@ -3061,7 +3093,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.objectiveLoanFk == this.objectiveLoanFk &&
           other.budgetFksExclude == this.budgetFksExclude &&
           other.ownerUid == this.ownerUid &&
-          other.isPrivate == this.isPrivate);
+          other.isPrivate == this.isPrivate &&
+          other.householdSyncedAt == this.householdSyncedAt);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -3098,6 +3131,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<List<String>?> budgetFksExclude;
   final Value<String?> ownerUid;
   final Value<bool> isPrivate;
+  final Value<DateTime?> householdSyncedAt;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.transactionPk = const Value.absent(),
@@ -3133,6 +3167,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.budgetFksExclude = const Value.absent(),
     this.ownerUid = const Value.absent(),
     this.isPrivate = const Value.absent(),
+    this.householdSyncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -3169,6 +3204,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.budgetFksExclude = const Value.absent(),
     this.ownerUid = const Value.absent(),
     this.isPrivate = const Value.absent(),
+    this.householdSyncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : name = Value(name),
         amount = Value(amount),
@@ -3208,6 +3244,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? budgetFksExclude,
     Expression<String>? ownerUid,
     Expression<bool>? isPrivate,
+    Expression<DateTime>? householdSyncedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3250,6 +3287,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (budgetFksExclude != null) 'budget_fks_exclude': budgetFksExclude,
       if (ownerUid != null) 'owner_uid': ownerUid,
       if (isPrivate != null) 'is_private': isPrivate,
+      if (householdSyncedAt != null) 'household_synced_at': householdSyncedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3288,6 +3326,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<List<String>?>? budgetFksExclude,
       Value<String?>? ownerUid,
       Value<bool>? isPrivate,
+      Value<DateTime?>? householdSyncedAt,
       Value<int>? rowid}) {
     return TransactionsCompanion(
       transactionPk: transactionPk ?? this.transactionPk,
@@ -3328,6 +3367,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       budgetFksExclude: budgetFksExclude ?? this.budgetFksExclude,
       ownerUid: ownerUid ?? this.ownerUid,
       isPrivate: isPrivate ?? this.isPrivate,
+      householdSyncedAt: householdSyncedAt ?? this.householdSyncedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3446,6 +3486,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (isPrivate.present) {
       map['is_private'] = Variable<bool>(isPrivate.value);
     }
+    if (householdSyncedAt.present) {
+      map['household_synced_at'] = Variable<DateTime>(householdSyncedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3491,6 +3534,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('budgetFksExclude: $budgetFksExclude, ')
           ..write('ownerUid: $ownerUid, ')
           ..write('isPrivate: $isPrivate, ')
+          ..write('householdSyncedAt: $householdSyncedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7722,6 +7766,7 @@ typedef $$TransactionsTableInsertCompanionBuilder = TransactionsCompanion
   Value<List<String>?> budgetFksExclude,
   Value<String?> ownerUid,
   Value<bool> isPrivate,
+  Value<DateTime?> householdSyncedAt,
   Value<int> rowid,
 });
 typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
@@ -7759,6 +7804,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<List<String>?> budgetFksExclude,
   Value<String?> ownerUid,
   Value<bool> isPrivate,
+  Value<DateTime?> householdSyncedAt,
   Value<int> rowid,
 });
 
@@ -7816,6 +7862,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<List<String>?> budgetFksExclude = const Value.absent(),
             Value<String?> ownerUid = const Value.absent(),
             Value<bool> isPrivate = const Value.absent(),
+            Value<DateTime?> householdSyncedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion(
@@ -7852,6 +7899,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             budgetFksExclude: budgetFksExclude,
             ownerUid: ownerUid,
             isPrivate: isPrivate,
+            householdSyncedAt: householdSyncedAt,
             rowid: rowid,
           ),
           getInsertCompanionBuilder: ({
@@ -7888,6 +7936,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<List<String>?> budgetFksExclude = const Value.absent(),
             Value<String?> ownerUid = const Value.absent(),
             Value<bool> isPrivate = const Value.absent(),
+            Value<DateTime?> householdSyncedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion.insert(
@@ -7924,6 +7973,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             budgetFksExclude: budgetFksExclude,
             ownerUid: ownerUid,
             isPrivate: isPrivate,
+            householdSyncedAt: householdSyncedAt,
             rowid: rowid,
           ),
         ));
@@ -8090,6 +8140,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<bool> get isPrivate => $state.composableBuilder(
       column: $state.table.isPrivate,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<DateTime> get householdSyncedAt => $state.composableBuilder(
+      column: $state.table.householdSyncedAt,
       builder: (column, joinBuilders) =>
           ColumnFilters(column, joinBuilders: joinBuilders));
 
@@ -8305,6 +8360,11 @@ class $$TransactionsTableOrderingComposer
 
   ColumnOrderings<bool> get isPrivate => $state.composableBuilder(
       column: $state.table.isPrivate,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<DateTime> get householdSyncedAt => $state.composableBuilder(
+      column: $state.table.householdSyncedAt,
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 
