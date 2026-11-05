@@ -424,7 +424,7 @@ Future<int> downloadTransactionsFromBudgets(
 
         await database.createOrUpdateFromSharedTransaction(
           insert: true,
-          Transaction(
+          Transaction(isPrivate: false, 
             transactionPk: "-1",
             name: transactionDecoded["name"],
             amount: transactionDecoded["amount"].toDouble(),

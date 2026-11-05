@@ -156,7 +156,7 @@ class PingSaver {
     final String walletPk = await _walletPkFor(row.walletName);
     final String categoryPk = categoryPkOverride ?? await _categoryPkFor(row);
     await database.createOrUpdateTransaction(
-      Transaction(
+      Transaction(isPrivate: false, 
         transactionPk: "-1",
         name: row.title,
         amount: row.isExpense ? -row.amount.abs() : row.amount.abs(),

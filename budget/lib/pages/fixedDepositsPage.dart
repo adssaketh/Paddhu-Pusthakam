@@ -277,7 +277,7 @@ class _FixedDepositFormPageState extends State<FixedDepositFormPage> {
     if (c.main == null) return false;
     await database.createOrUpdateTransaction(
       insert: true,
-      Transaction(
+      Transaction(isPrivate: false, 
         transactionPk: "-1",
         name: name,
         note: "",

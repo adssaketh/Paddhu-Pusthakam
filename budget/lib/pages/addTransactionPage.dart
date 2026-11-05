@@ -648,7 +648,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       }
     }
 
-    Transaction createdTransaction = Transaction(
+    Transaction createdTransaction = Transaction(ownerUid: widget.transaction?.ownerUid, isPrivate: widget.transaction?.isPrivate ?? false, 
       transactionPk:
           widget.transaction != null ? widget.transaction!.transactionPk : "-1",
       pairedTransactionFk: widget.transaction?.pairedTransactionFk,
@@ -3717,7 +3717,7 @@ class SelectTransactionTypePopup extends StatelessWidget {
                         .colorScheme
                         .background
                         .withOpacity(0.5),
-                    transaction: Transaction(
+                    transaction: Transaction(isPrivate: false, 
                       transactionPk: "-1",
                       name: "",
                       amount: 100,
@@ -3743,7 +3743,7 @@ class SelectTransactionTypePopup extends StatelessWidget {
                           padding:
                               EdgeInsetsDirectional.symmetric(horizontal: 6),
                           allowOpenIntoObjectiveLoanPage: false,
-                          transaction: Transaction(
+                          transaction: Transaction(isPrivate: false, 
                             transactionPk: "-1",
                             name: "",
                             amount: 0,

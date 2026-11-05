@@ -697,7 +697,7 @@ class DebugPage extends StatelessWidget {
                     for (int i = 0; i < 10; i++) {
                       await database.createOrUpdateTransaction(
                         insert: true,
-                        Transaction(
+                        Transaction(isPrivate: false, 
                           transactionPk: "-1",
                           name: "Test" + randomDouble[i].toString(),
                           amount: randomInt[i].toDouble(),

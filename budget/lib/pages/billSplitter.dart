@@ -1541,7 +1541,7 @@ Future<bool> generateLoanTransactionsFromBillSummary(
 
       await database.createOrUpdateTransaction(
         insert: true,
-        Transaction(
+        Transaction(isPrivate: false, 
           transactionPk: "-1",
           name: isThePayee || associatedPersonLoan != null
               ? billName.trim()

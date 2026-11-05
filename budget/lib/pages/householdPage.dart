@@ -13,7 +13,7 @@ import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/textInput.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 /// Create a household, invite people with a code, join one, and manage members.
 class HouseholdPage extends StatefulWidget {
