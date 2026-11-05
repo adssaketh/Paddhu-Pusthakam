@@ -1,6 +1,7 @@
 // Household sync, outbound half: sends this person's transactions and the categories to the
-// household in Cloud Firestore. Nothing is downloaded or changed on this phone by this file,
-// apart from marking which transactions belong to this person.
+// household in Cloud Firestore. The inbound half (other members' transactions, shared
+// categories) is householdDownload.dart; this file only starts and stops it.
+// Apart from that, this file only marks which transactions belong to this person.
 //
 // How it works
 //  - A transaction has an owner (transactions.ownerUid).
@@ -22,6 +23,7 @@ import 'dart:math';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdDownload.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
@@ -75,9 +77,11 @@ void startHouseholdSync() {
   _periodic =
       Timer.periodic(const Duration(minutes: 3), (_) => syncHouseholdNow());
   _scheduleSync();
+  startHouseholdDownload();
 }
 
 void stopHouseholdSync() {
+  stopHouseholdDownload();
   _debounce?.cancel();
   _periodic?.cancel();
   _watch?.cancel();
@@ -132,6 +136,9 @@ Future<String?> adoptExistingTransactions({required bool share}) async {
 Future<void> releaseHouseholdTransactions() async {
   stopHouseholdSync();
   try {
+    // Let a download that was already running finish first, then drop other members' data.
+    await householdDownloadIdle();
+    await removeOtherMembersData();
     await (database.update(database.transactions)
           ..where((t) => t.ownerUid.isNotNull() & t.ownerUid.equals('').not()))
         .write(const TransactionsCompanion(
@@ -282,21 +289,25 @@ Map<String, dynamic> _categoryDocument(TransactionCategory category) {
   return json;
 }
 
+/// A fingerprint of the categories as they would be uploaded. dateTimeModified changes
+/// whenever a transaction uses the category, which is not a real edit, so it is left out.
+String householdCategoriesHash(List<TransactionCategory> categories) {
+  final List<TransactionCategory> sorted = List.of(categories)
+    ..sort((a, b) => a.categoryPk.compareTo(b.categoryPk));
+  final String signature = jsonEncode(sorted.map((c) {
+    final Map<String, dynamic> document = _categoryDocument(c);
+    document.remove('dateTimeModified');
+    return document;
+  }).toList());
+  return signature.hashCode.toString();
+}
+
 Future<void> _uploadCategories(FirebaseFirestore db, String hid) async {
   final List<TransactionCategory> categories =
       await database.select(database.categories).get();
   categories.sort((a, b) => a.categoryPk.compareTo(b.categoryPk));
-  final List<Map<String, dynamic>> documents =
-      categories.map(_categoryDocument).toList();
 
-  // dateTimeModified changes whenever a transaction uses the category, which is not
-  // a real edit, so it is left out of the comparison.
-  final String signature = jsonEncode(documents.map((d) {
-    final Map<String, dynamic> copy = Map.of(d);
-    copy.remove('dateTimeModified');
-    return copy;
-  }).toList());
-  final String hash = signature.hashCode.toString();
+  final String hash = householdCategoriesHash(categories);
   if (hash == (appStateSettings["householdCategoriesHash"] ?? "").toString()) {
     return;
   }
@@ -306,7 +317,7 @@ Future<void> _uploadCategories(FirebaseFirestore db, String hid) async {
     for (int i = start; i < min(start + _batchSize, categories.length); i++) {
       batch.set(
         db.doc('households/$hid/categories/${categories[i].categoryPk}'),
-        documents[i],
+        _categoryDocument(categories[i]),
       );
     }
     await batch.commit().timeout(_serverTimeout);
