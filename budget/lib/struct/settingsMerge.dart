@@ -28,6 +28,8 @@ const Set<String> kSettingsNotSynced = {
   'hasOnboarded', 'appAnimations', 'animationSpeed', 'batterySaver', 'materialYou', 'accentSystemColor',
   'expandedNavigationSidebar', 'cachedCurrencyExchange', 'sharedBudgets', 'fdReminderCount',
   'allSpendingLastPage', 'loansLastPage',
+  // household membership belongs to one login, it is re-read from the server
+  'householdId', 'householdName', 'householdRole', 'householdNickname',
 };
 
 /// Settings whose value is a collection of items, merged item by item.
