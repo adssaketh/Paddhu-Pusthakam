@@ -161,6 +161,26 @@ void main() {
   check(drop.length == 2 && drop.contains('x') && drop.contains('z') && !drop.contains('y'),
       'leaving drops other people\'s copies and keeps my own items');
 
+  // ---- clearing what I shared before I left or was removed
+  final Set<String> purge = sharedServerDocsToPurge(
+      serverDocIds: const {'fd-me-a', 'loan-me-b'}, activeDocIds: const {});
+  check(purge.length == 2, 'after joining again, everything I shared before is stale and goes');
+  final Set<String> purgeSome = sharedServerDocsToPurge(
+      serverDocIds: const {'fd-me-a', 'loan-me-b'}, activeDocIds: const {'fd-me-a'});
+  check(purgeSome.length == 1 && purgeSome.contains('loan-me-b'),
+      'an item I still share is not purged');
+  check(sharedServerDocsToPurge(serverDocIds: const {}, activeDocIds: const {'fd-me-a'}).isEmpty,
+      'nothing on the server means nothing to purge');
+  // A person who left is no longer a member, so nobody sees their items any more.
+  final SharedItemMeta leaverItem = item(owner: 'sis', visibleTo: const ['me']);
+  check(sees(leaverItem, 'me'), 'while sis is a member, I see what she shared with me');
+  check(!sees(leaverItem, 'me', const {'me', 'dad', 'mom'}),
+      'after sis left or was removed, her items are hidden from me');
+  // Handing the household over changes who owns it, not who owns an item.
+  check(sharedItemCanManage(item: leaverItem, uid: 'sis'), 'an item stays with the person who made it');
+  check(!sharedItemCanManage(item: leaverItem, uid: 'me'),
+      'the new household owner does not become the owner of other people\'s items');
+
   // ---- the settings that hold the owner's choices
   check(isSyncedSettingKey('householdSharedOwn'), 'who I share with is kept in step between my own phones');
   check(!isSyncedSettingKey('householdSharedUploaded'), 'what this phone sent is not copied to my other phones');

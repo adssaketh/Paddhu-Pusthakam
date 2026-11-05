@@ -15,6 +15,7 @@ import 'dart:math';
 
 import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdOwnership.dart';
+import 'package:budget/struct/householdSharedItems.dart';
 import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
@@ -309,6 +310,8 @@ Future<String?> joinHousehold({
     });
     await db.doc('users/$uid').set(
         {'householdId': hid, 'displayName': nickname}, SetOptions(merge: true));
+    // Joining the same household again after being removed: what I shared before is stale now.
+    await purgeStaleOwnSharedItems(db, hid, uid);
     final household = await db.doc('households/$hid').get();
     await _saveLocal(
       id: hid,
@@ -332,6 +335,14 @@ Future<String?> leaveHousehold() async {
   if (db == null) return _offlineMessage;
   try {
     final String uid = _uid;
+    // My shared loans and deposits go first: the rules only let a member delete them, and after
+    // leaving nobody else could clear them away. If this fails, I stay in (nothing is half done).
+    try {
+      await deleteOwnSharedItemsOnServer(db, householdId, uid);
+    } catch (e) {
+      return "Could not remove your shared loans and deposits, so you were not removed from the household. "
+          "${_friendlyError(e)}";
+    }
     await db.doc('households/$householdId/members/$uid').delete();
     await db.doc('users/$uid').set(
         {'householdId': FieldValue.delete()}, SetOptions(merge: true));

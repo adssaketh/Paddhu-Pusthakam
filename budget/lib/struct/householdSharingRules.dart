@@ -226,3 +226,10 @@ Set<String> sharedCopiesToRemove({required Set<String> heldDocIds, required Set<
 /// document id to the owner's uid. My own items stay.
 Set<String> sharedCopiesToDropOnLeave({required Map<String, String> heldOwnerByDocId, required String myUid}) =>
     {for (final MapEntry<String, String> e in heldOwnerByDocId.entries) if (e.value != myUid) e.key};
+
+/// Of the shared items this person has on the server, the ones that no longer match a choice they made.
+/// After somebody was removed and joins again, what they shared before is still on the server (the owner of
+/// the household cannot list another person's items to clear them), but their choices on this phone were
+/// cleared when they left, so all of it is stale and goes.
+Set<String> sharedServerDocsToPurge({required Set<String> serverDocIds, required Set<String> activeDocIds}) =>
+    serverDocIds.difference(activeDocIds);

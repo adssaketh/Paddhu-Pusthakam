@@ -151,6 +151,50 @@ Future<void> releaseSharedItems() async {
   }
 }
 
+/// Deletes every shared item of mine from the server. Used when I leave: it has to happen BEFORE my
+/// membership is deleted, because the rules only let a member delete. Throws when it fails (so leaving
+/// can be refused instead of leaving items behind).
+Future<void> deleteOwnSharedItemsOnServer(
+    FirebaseFirestore db, String hid, String uid) async {
+  final QuerySnapshot<Map<String, dynamic>> mine = await db
+      .collection('households/$hid/sharedItems')
+      .where('ownerUid', isEqualTo: uid)
+      .get(const GetOptions(source: Source.server))
+      .timeout(_serverTimeout);
+  // A batch holds at most 500 writes.
+  for (int start = 0; start < mine.docs.length; start += 400) {
+    final WriteBatch batch = db.batch();
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+        in mine.docs.skip(start).take(400)) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit().timeout(_serverTimeout);
+  }
+}
+
+/// After joining (again): removes what I shared in an earlier membership. Best effort; a failure only
+/// means those items stay hidden (their owner is not in the household while I am away, and they are not
+/// among my choices any more).
+Future<void> purgeStaleOwnSharedItems(
+    FirebaseFirestore db, String hid, String uid) async {
+  try {
+    final QuerySnapshot<Map<String, dynamic>> mine = await db
+        .collection('households/$hid/sharedItems')
+        .where('ownerUid', isEqualTo: uid)
+        .get(const GetOptions(source: Source.server))
+        .timeout(_serverTimeout);
+    final Set<String> stale = sharedServerDocsToPurge(
+      serverDocIds: mine.docs.map((d) => d.id).toSet(),
+      activeDocIds: ownSharedItems().keys.toSet(),
+    );
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc in mine.docs) {
+      if (stale.contains(doc.id)) await doc.reference.delete();
+    }
+  } catch (e) {
+    print("Household shared items: could not clear old items: ${e.toString()}");
+  }
+}
+
 // ---------------------------------------------------------------------------
 // reading the real item
 
