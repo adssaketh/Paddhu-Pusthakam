@@ -336,7 +336,7 @@ class _AddCategoryPageState extends State<AddCategoryPage>
                         .secondaryContainer
                         .withOpacity(0.7),
                     openPage: Container(),
-                    transaction: Transaction(
+                    transaction: Transaction(isPrivate: false, 
                       transactionPk: "-1",
                       name: "",
                       amount: 100,

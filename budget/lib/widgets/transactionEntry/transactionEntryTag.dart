@@ -2,6 +2,8 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdMembers.dart';
+import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/categoryIcon.dart';
 import 'package:budget/widgets/textWidgets.dart';
@@ -43,6 +45,10 @@ class TransactionEntryTag extends StatelessWidget {
       showExcludedBudgetTagCheck = showExcludedBudgetTag!(transaction);
     }
 
+    // Who added it: only in a household with other people, and never for personal transactions.
+    final String? memberLabel = householdOwnerLabel(transaction.ownerUid);
+    final String memberUid = transaction.ownerUid ?? currentHouseholdUserUid;
+
     return Theme(
       data: Theme.of(context)
           .copyWith(colorScheme: getColorScheme(Theme.of(context).brightness)),
@@ -51,6 +57,7 @@ class TransactionEntryTag extends StatelessWidget {
         child: LayoutBuilder(builder: (context, constraints) {
           double maxWidth = constraints.maxWidth;
           List<bool> tagsToShow = [
+            memberLabel != null, // member
             appStateSettings["showAccountLabelTagInTransactionEntry"] ==
                 true, //0
             transaction.subCategoryFk != null, //1
@@ -61,6 +68,22 @@ class TransactionEntryTag extends StatelessWidget {
           ];
           int tagCount = tagsToShow.where((element) => element == true).length;
           List<Widget> tags = [
+            // member
+            TransactionTag(
+              color: Colors.primaries[householdMemberColorIndex(
+                  memberUid, Colors.primaries.length)],
+              name: memberLabel ?? "",
+              leading: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 3),
+                child: Icon(
+                  appStateSettings["outlinedIcons"]
+                      ? Icons.person_outline_rounded
+                      : Icons.person_rounded,
+                  size: 11.5,
+                  color: getColor(context, "black").withOpacity(0.7),
+                ),
+              ),
+            ),
             // 0
             TransactionTag(
               color: HexColor(

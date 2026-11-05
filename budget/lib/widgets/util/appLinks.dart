@@ -195,7 +195,7 @@ Future<Transaction?> processAddTransactionFromParams(
   }
 
   final int? rowId = await database.createOrUpdateTransaction(
-    Transaction(
+    Transaction(isPrivate: false, 
       transactionPk: "-1",
       name: title,
       amount: amount,

@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function hDoc(h) { return get(/databases/$(db)/documents/households/$(h)); }
+    function mPath(h) { return /databases/$(db)/documents/households/$(h)/members/$(request.auth.uid); }
+    function isMember(h) { return signedIn() && exists(mPath(h)); }
+    function me(h) { return get(mPath(h)).data; }
+    function isOwner(h) { return isMember(h) && me(h).role == 'owner'; }
+    function memPath(h, u) { return /databases/$(db)/documents/households/$(h)/members/$(u); }
+    // Hand-over: the new owner is a member, and in the same batch gets the owner role while the old owner becomes a member
+    function handsOver(h) {
+      return exists(memPath(h, request.resource.data.ownerId))
+        && getAfter(memPath(h, request.resource.data.ownerId)).data.role == 'owner'
+        && getAfter(mPath(h)).data.role == 'member';
+    }
+
+    // Personal data (accounts, settings, loans, deposits, pending, learned): owner only
+    match /users/{uid}/{document=**} {
+      allow read, write: if isSelf(uid);
+    }
+
+    // Invites: read by exact code only, created by the household owner
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && isOwner(request.resource.data.householdId);
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /households/{h} {
+      allow read: if isMember(h);
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOwner(h)
+        && (request.resource.data.ownerId == resource.data.ownerId || handsOver(h));
+      allow delete: if isOwner(h);
+
+      match /members/{m} {
+        allow read: if isMember(h);
+        allow create: if isSelf(m) && (
+          (request.resource.data.role == 'owner'
+            && hDoc(h).data.ownerId == request.auth.uid
+            && !exists(/databases/$(db)/documents/households/$(h)/members/$(m)))
+          ||
+          (request.resource.data.role == 'member'
+            && request.resource.data.canDelete == false
+            && get(/databases/$(db)/documents/invites/$(request.resource.data.inviteCode)).data.householdId == h)
+        );
+        allow update: if isOwner(h)
+          || (isSelf(m)
+              && request.resource.data.role == resource.data.role
+              && request.resource.data.canDelete == resource.data.canDelete);
+        allow delete: if (isOwner(h) && m != request.auth.uid) || (isSelf(m) && me(h).role != 'owner');
+      }
+
+      // Balances live in their own docs so the owner can hide them from others
+      match /balances/{a} {
+        allow read: if isMember(h)
+          && (resource.data.ownerId == request.auth.uid || hDoc(h).data.showBalances == true);
+        allow create: if isMember(h) && request.resource.data.ownerId == request.auth.uid;
+        allow update, delete: if isMember(h) && resource.data.ownerId == request.auth.uid;
+      }
+
+      match /categories/{c} {
+        allow read, write: if isMember(h);
+      }
+
+      // Everyone sees transactions; private ones only the owner
+      match /transactions/{t} {
+        allow read: if isMember(h)
+          && (resource.data.isPrivate == false || resource.data.ownerId == request.auth.uid);
+        allow create: if isMember(h)
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.isPrivate is bool;
+        allow update: if isMember(h)
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == resource.data.ownerId;
+        allow delete: if isMember(h)
+          && (resource.data.ownerId == request.auth.uid || me(h).canDelete == true);
+      }
+    }
+  }
+}

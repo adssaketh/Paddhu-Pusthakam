@@ -7,6 +7,7 @@ import 'package:budget/pages/editBudgetPage.dart';
 import 'package:budget/struct/featureGates.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/sharedBudgetSettings.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
@@ -1348,7 +1349,7 @@ class _WalletChipSelectorState extends State<WalletChipSelector> {
               children: [
                 SizedBox(height: 5),
                 SelectChips(
-                  items: [null, ...snapshot.data!],
+                  items: [null, ...snapshot.data!.where((w) => !isPlaceholderWalletPk(w.walletPk))],
                   onLongPress: (TransactionWallet? item) {
                     pushRoute(
                       context,

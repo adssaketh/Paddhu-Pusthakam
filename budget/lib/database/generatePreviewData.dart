@@ -185,6 +185,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       objectiveFk: "10",
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
@@ -209,6 +210,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       objectiveFk: "11",
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
@@ -233,6 +235,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       objectiveFk: "11",
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
@@ -257,6 +260,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Plane Ticket",
@@ -281,6 +285,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
         methodAdded: MethodAdded.preview,
         transactionPk: "-1",
         name: "Phone Bill",
@@ -305,6 +310,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Coffee",
@@ -330,6 +336,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Coffee",
@@ -355,6 +362,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Restaurant",
@@ -380,6 +388,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "",
@@ -405,6 +414,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "",
@@ -462,6 +472,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Payroll",
@@ -486,6 +497,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Payroll",
@@ -510,6 +522,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Payroll",
@@ -534,6 +547,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Extra income",
@@ -559,6 +573,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Clothes",
@@ -584,6 +599,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "",
@@ -609,6 +625,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "",
@@ -634,6 +651,7 @@ Future generatePreviewData() async {
     updateSharedEntry: false,
     insert: true,
     Transaction(
+      isPrivate: false,
       methodAdded: MethodAdded.preview,
       transactionPk: "-1",
       name: "Movie streaming service",
@@ -706,6 +724,7 @@ Future generatePreviewData() async {
       updateSharedEntry: false,
       insert: true,
       Transaction(
+        isPrivate: false,
         methodAdded: MethodAdded.preview,
         transactionPk: "-1",
         name: "",
@@ -737,6 +756,7 @@ Future generatePreviewData() async {
       updateSharedEntry: false,
       insert: true,
       Transaction(
+        isPrivate: false,
         methodAdded: MethodAdded.preview,
         transactionPk: "-1",
         name: "",
@@ -768,6 +788,7 @@ Future generatePreviewData() async {
       updateSharedEntry: false,
       insert: true,
       Transaction(
+        isPrivate: false,
         methodAdded: MethodAdded.preview,
         transactionPk: "-1",
         name: "",

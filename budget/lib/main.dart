@@ -15,6 +15,7 @@ import 'package:budget/widgets/util/watchForDayChange.dart';
 import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/notificationsGlobal.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
@@ -62,6 +63,8 @@ void main() async {
     iconObjects.sort((a, b) => (a.mostLikelyCategoryName ?? a.icon)
         .compareTo((b.mostLikelyCategoryName ?? b.icon)));
     setHighRefreshRate();
+    // Household sharing: does nothing unless this person is in a household and chose what to share.
+    startHouseholdSync();
     runApp(
       DevicePreview(
         enabled: enableDevicePreview,

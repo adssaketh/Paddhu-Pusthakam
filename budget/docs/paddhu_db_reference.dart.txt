@@ -1,0 +1,121 @@
+// Paddhu Pusthakam data layer (Cloud Firestore).
+// pubspec: cloud_firestore, firebase_auth, firebase_core, rxdart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxdart/rxdart.dart';
+
+class PaddhuDb {
+  PaddhuDb({required this.uid, required this.hid});
+  final String uid; // signed-in user
+  final String hid; // household id
+  final _db = FirebaseFirestore.instance;
+
+  // ---------- references ----------
+  DocumentReference<Map<String, dynamic>> get _household => _db.doc('households/$hid');
+  CollectionReference<Map<String, dynamic>> get _txns => _household.collection('transactions');
+  CollectionReference<Map<String, dynamic>> get _balances => _household.collection('balances');
+  CollectionReference<Map<String, dynamic>> _mine(String name) => _db.collection('users/$uid/$name');
+
+  // ---------- household setup ----------
+  /// Create a household; caller becomes owner.
+  static Future<String> createHousehold(String uid, String name, String displayName) async {
+    final db = FirebaseFirestore.instance;
+    final ref = db.collection('households').doc();
+    await ref.set({'ownerId': uid, 'name': name, 'showBalances': false, 'createdAt': FieldValue.serverTimestamp()});
+    await ref.collection('members').doc(uid).set({'role': 'owner', 'canDelete': true, 'displayName': displayName});
+    await db.doc('users/$uid').set({'householdId': ref.id, 'displayName': displayName}, SetOptions(merge: true));
+    return ref.id;
+  }
+
+  /// Owner generates a short invite code.
+  Future<String> createInvite() async {
+    final code = _db.collection('invites').doc().id.substring(0, 8).toUpperCase();
+    await _db.doc('invites/$code').set({'householdId': hid, 'ownerId': uid, 'createdAt': FieldValue.serverTimestamp()});
+    return code;
+  }
+
+  /// Joining user enters the code.
+  static Future<String> joinHousehold(String uid, String code, String displayName) async {
+    final db = FirebaseFirestore.instance;
+    final inv = await db.doc('invites/$code').get();
+    if (!inv.exists) throw 'Invalid invite code';
+    final h = inv['householdId'] as String;
+    await db.doc('households/$h/members/$uid').set({
+      'role': 'member', 'canDelete': false, 'displayName': displayName, 'inviteCode': code,
+    });
+    await db.doc('users/$uid').set({'householdId': h, 'displayName': displayName}, SetOptions(merge: true));
+    return h;
+  }
+
+  // ---------- owner switches ----------
+  Future<void> setShowBalances(bool on) => _household.update({'showBalances': on});
+  Future<void> setCanDelete(String memberUid, bool on) =>
+      _household.collection('members').doc(memberUid).update({'canDelete': on});
+
+  // ---------- accounts (private) ----------
+  Future<void> saveAccount(String id, Map<String, dynamic> data) =>
+      _mine('accounts').doc(id).set(data, SetOptions(merge: true));
+
+  /// Masked label others will see, e.g. "Saketh · Axis".
+  Future<void> saveBalance(String accId, double balance) =>
+      _balances.doc(accId).set({'ownerId': uid, 'balance': balance, 'updatedAt': FieldValue.serverTimestamp()});
+
+  // ---------- transactions ----------
+  /// Use a deterministic id (e.g. SMS hash) so Ping imports never create duplicates.
+  Future<void> addTransaction({
+    required String id,
+    required double amount,
+    required String type, // expense | income | transfer
+    required String category,
+    required String accountLabel, // masked label, e.g. "Saketh · Axis"
+    required DateTime date,
+    String? toLabel,
+    String? note,
+    bool isPrivate = false,
+  }) =>
+      _txns.doc(id).set({
+        'ownerId': uid,
+        'amount': amount,
+        'type': type,
+        'category': category,
+        'accountLabel': accountLabel,
+        'toLabel': toLabel,
+        'note': note,
+        'date': Timestamp.fromDate(date),
+        'isPrivate': isPrivate,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+  Future<void> deleteTransaction(String id) => _txns.doc(id).delete();
+
+  /// Rules reject queries that could touch other people's private rows,
+  /// so we run two queries and merge them.
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> transactions({bool mineOnly = false}) {
+    final mineAll = _txns.where('ownerId', isEqualTo: uid).orderBy('date', descending: true).snapshots();
+    if (mineOnly) return mineAll.map((s) => s.docs);
+
+    final shared = _txns.where('isPrivate', isEqualTo: false).orderBy('date', descending: true).snapshots();
+    final myPrivate = _txns
+        .where('ownerId', isEqualTo: uid)
+        .where('isPrivate', isEqualTo: true)
+        .orderBy('date', descending: true)
+        .snapshots();
+
+    return Rx.combineLatest2(shared, myPrivate, (a, b) {
+      final all = [...a.docs, ...b.docs];
+      all.sort((x, y) => (y['date'] as Timestamp).compareTo(x['date'] as Timestamp));
+      return all;
+    });
+  }
+
+  // ---------- review queue, loans, deposits, learned rules (all private) ----------
+  Future<void> queuePending(String id, Map<String, dynamic> data) => _mine('pending').doc(id).set(data);
+  Future<void> removePending(String id) => _mine('pending').doc(id).delete();
+  Stream<QuerySnapshot<Map<String, dynamic>>> pending() => _mine('pending').snapshots();
+
+  Future<void> saveLoan(String id, Map<String, dynamic> d) => _mine('loans').doc(id).set(d, SetOptions(merge: true));
+  Future<void> saveDeposit(String id, Map<String, dynamic> d) => _mine('deposits').doc(id).set(d, SetOptions(merge: true));
+  Future<void> saveLearned(String merchantKey, Map<String, dynamic> d) =>
+      _mine('learned').doc(merchantKey).set(d, SetOptions(merge: true));
+  Future<void> saveSettings(Map<String, dynamic> d) =>
+      _mine('settings').doc('prefs').set(d, SetOptions(merge: true));
+}

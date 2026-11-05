@@ -643,7 +643,7 @@ Future<void> parseEmailsInBackground(context,
 
         await addAssociatedTitles(title, selectedCategory);
 
-        Transaction transactionToAdd = Transaction(
+        Transaction transactionToAdd = Transaction(isPrivate: false, 
           transactionPk: "-1",
           name: title,
           amount: (amountDouble).abs() * (selectedCategory.income ? 1 : -1),

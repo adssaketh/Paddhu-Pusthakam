@@ -6,6 +6,7 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/pingImport.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' show Colors;
@@ -61,7 +62,10 @@ class PingSaver {
 
   /// false when Paddhu Pusthakam has no wallet yet (not set up), in which case nothing can be saved.
   Future<bool> init() async {
-    final List<TransactionWallet> wallets = await database.getAllWallets();
+    // Other household members' placeholder accounts are never used for imports.
+    final List<TransactionWallet> wallets = (await database.getAllWallets())
+        .where((w) => !isPlaceholderWalletPk(w.walletPk))
+        .toList();
     if (wallets.isEmpty) return false;
     _walletPkByName = {
       for (final w in wallets) w.name.trim().toLowerCase(): w.walletPk,
@@ -156,7 +160,7 @@ class PingSaver {
     final String walletPk = await _walletPkFor(row.walletName);
     final String categoryPk = categoryPkOverride ?? await _categoryPkFor(row);
     await database.createOrUpdateTransaction(
-      Transaction(
+      Transaction(isPrivate: false, 
         transactionPk: "-1",
         name: row.title,
         amount: row.isExpense ? -row.amount.abs() : row.amount.abs(),

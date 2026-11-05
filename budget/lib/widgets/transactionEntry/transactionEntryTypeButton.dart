@@ -8,6 +8,7 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/upcomingTransactionsFunctions.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
+import 'package:budget/widgets/householdGuard.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/tappable.dart';
@@ -40,7 +41,11 @@ class TransactionEntryActionButton extends StatelessWidget {
             padding: padding,
             dealtWith: isTransactionActionDealtWith(transaction),
             message: getTransactionActionNameFromType(transaction),
-            onTap: () => openTransactionActionFromType(context, transaction),
+            onTap: () {
+              // Members pay, collect or skip only their own transactions.
+              if (!guardCanEditTransaction(transaction.ownerUid)) return;
+              openTransactionActionFromType(context, transaction);
+            },
             containerColor: containerColor,
             iconColor: iconColor,
             iconData: getTransactionTypeIcon(transaction.type),
@@ -54,6 +59,7 @@ class TransactionEntryActionButton extends StatelessWidget {
                 ? () => pushRoute(context,
                     ObjectivePage(objectivePk: transaction.objectiveLoanFk!))
                 : () async {
+                    if (!guardCanEditTransaction(transaction.ownerUid)) return;
                     Objective loanObjective = await database
                         .getObjectiveInstance(transaction.objectiveLoanFk!);
                     if (getIsDifferenceOnlyLoan(loanObjective)) {
@@ -195,6 +201,7 @@ class TransactionEntryTypeButton extends StatelessWidget {
                     ),
                   ),
                   onTap: () {
+                    if (!guardCanEditTransaction(transaction.ownerUid)) return;
                     openTransactionActionFromType(context, transaction);
                   },
                 ),

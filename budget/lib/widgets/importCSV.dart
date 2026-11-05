@@ -1078,7 +1078,7 @@ class _ImportingEntriesPopupState extends State<ImportingEntriesPopup> {
         : selectedCategory.categoryPk;
 
     return ImportingTransactionAndTitle(
-      Transaction(
+      Transaction(isPrivate: false, 
         transactionPk: "-1",
         name: name,
         amount: amount,

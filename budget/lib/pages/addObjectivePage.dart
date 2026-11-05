@@ -248,7 +248,7 @@ class _AddObjectivePageState extends State<AddObjectivePage>
       if (mainAndSubcategory?.main != null) {
         await database.createOrUpdateTransaction(
           insert: true,
-          Transaction(
+          Transaction(isPrivate: false, 
             transactionPk: "-1",
             name: "initial-record".tr(),
             note: "",
@@ -1456,7 +1456,7 @@ class _InstallmentObjectivePopupState extends State<InstallmentObjectivePopup> {
                   label: "add-transaction".tr(),
                   width: MediaQuery.sizeOf(context).width,
                   onTap: () async {
-                    Transaction transaction = Transaction(
+                    Transaction transaction = Transaction(isPrivate: false, 
                       transactionPk: "-1",
                       name: selectedTitle,
                       amount: getInstallmentPaymentCalculations(

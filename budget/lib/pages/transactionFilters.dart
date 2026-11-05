@@ -7,6 +7,8 @@ import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/pages/transactionsSearchPage.dart';
+import 'package:budget/struct/householdMembers.dart';
+import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/struct/databaseGlobal.dart';
@@ -26,6 +28,7 @@ import 'package:budget/widgets/amountRangeSlider.dart';
 class SearchFilters {
   SearchFilters({
     this.walletPks = const [],
+    this.memberUids = const [],
     this.categoryPks = const [],
     this.subcategoryPks = const [],
     this.budgetPks = const [],
@@ -46,6 +49,7 @@ class SearchFilters {
     this.noteContains,
   }) {
     walletPks = this.walletPks.isEmpty ? [] : this.walletPks;
+    memberUids = this.memberUids.isEmpty ? [] : this.memberUids;
     categoryPks = this.categoryPks.isEmpty ? [] : this.categoryPks;
     subcategoryPks =
         this.subcategoryPks?.isEmpty == true ? [] : this.subcategoryPks;
@@ -69,6 +73,7 @@ class SearchFilters {
   //if the value is empty, it means all/ignore
   // think of it, if the tag is added it will be considered in the search
   List<String> walletPks;
+  List<String> memberUids; // household members who added the transaction
   List<String> categoryPks;
   List<String>?
       subcategoryPks; // if this is null, it means any transaction WITHOUT a subcategory (blank list means all)
@@ -91,6 +96,7 @@ class SearchFilters {
 
   SearchFilters copyWith({
     List<String>? walletPks,
+    List<String>? memberUids,
     List<String>? categoryPks,
     List<String>? subcategoryPks,
     List<String?>? budgetPks,
@@ -112,6 +118,7 @@ class SearchFilters {
   }) {
     return SearchFilters(
       walletPks: walletPks ?? this.walletPks,
+      memberUids: memberUids ?? this.memberUids,
       categoryPks: categoryPks ?? this.categoryPks,
       subcategoryPks: subcategoryPks ?? this.subcategoryPks,
       budgetPks: budgetPks ?? this.budgetPks,
@@ -137,6 +144,7 @@ class SearchFilters {
 
   clearSearchFilters() {
     walletPks = [];
+    memberUids = [];
     categoryPks = [];
     subcategoryPks = [];
     budgetPks = [];
@@ -159,6 +167,7 @@ class SearchFilters {
 
   bool isClear({bool? ignoreDateTimeRange, bool? ignoreSearchQuery}) {
     if (walletPks.isEmpty &&
+        memberUids.isEmpty &&
         categoryPks.isEmpty &&
         subcategoryPks?.isEmpty == true &&
         budgetPks.isEmpty &&
@@ -197,6 +206,9 @@ class SearchFilters {
         switch (key) {
           case 'walletPks':
             walletPks.add(value);
+            break;
+          case 'memberUids':
+            memberUids.add(value);
             break;
           case 'categoryPks':
             categoryPks.add(value);
@@ -324,6 +336,9 @@ class SearchFilters {
     String outString = "";
     for (String element in walletPks) {
       outString += "walletPks:-:" + element + ":-:";
+    }
+    for (String element in memberUids) {
+      outString += "memberUids:-:" + element + ":-:";
     }
     for (String element in categoryPks) {
       outString += "categoryPks:-:" + element + ":-:";
@@ -853,6 +868,43 @@ class _TransactionFiltersSelectionState
             );
           },
         ),
+
+        // Who added it (only in a household with other people)
+        if (isInHousehold && householdMemberNames.length > 1)
+          Builder(builder: (context) {
+            final List<String> uids = householdMemberNames.keys.toList()
+              ..sort((a, b) => householdMemberName(a)
+                  .toLowerCase()
+                  .compareTo(householdMemberName(b).toLowerCase()));
+            return SelectChips(
+              items: uids,
+              getLabel: (String uid) => uid == currentHouseholdUserUid
+                  ? householdMemberName(uid) + " (you)"
+                  : householdMemberName(uid),
+              onSelected: (String uid) {
+                if (selectedFilters.memberUids.contains(uid)) {
+                  selectedFilters.memberUids.remove(uid);
+                } else {
+                  selectedFilters.memberUids.add(uid);
+                }
+                setSearchFilters();
+              },
+              getSelected: (String uid) {
+                return selectedFilters.memberUids.contains(uid);
+              },
+              getCustomBorderColor: (String uid) {
+                return dynamicPastel(
+                  context,
+                  lightenPastel(
+                    Colors.primaries[householdMemberColorIndex(
+                        uid, Colors.primaries.length)],
+                    amount: 0.3,
+                  ),
+                  amount: 0.4,
+                );
+              },
+            );
+          }),
 
         StreamBuilder<List<Budget>>(
           stream: database.watchAllAddableBudgets(),
@@ -1429,6 +1481,15 @@ class AppliedFilterChips extends StatelessWidget {
           allWallets.indexedByPk[walletPk]?.colour,
           defaultColor: Theme.of(context).colorScheme.primary,
         ),
+        openFiltersSelection: openFiltersSelection,
+      ));
+    }
+    // Household members
+    for (String memberUid in searchFilters.memberUids) {
+      out.add(AppliedFilterChip(
+        label: householdMemberName(memberUid),
+        customBorderColor: Colors.primaries[
+            householdMemberColorIndex(memberUid, Colors.primaries.length)],
         openFiltersSelection: openFiltersSelection,
       ));
     }

@@ -996,7 +996,7 @@ Future<String?> createCorrectionTransaction(
   int? rowId = await database.createOrUpdateTransaction(
     insert: true,
     updateSharedEntry: false,
-    Transaction(
+    Transaction(isPrivate: false, 
       pairedTransactionFk: pairedTransactionFk,
       transactionPk: "-1",
       name: title ?? "",

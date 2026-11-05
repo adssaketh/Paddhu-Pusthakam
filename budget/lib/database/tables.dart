@@ -5,6 +5,9 @@ import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdService.dart';
+import 'package:budget/struct/householdView.dart';
+import 'package:budget/struct/householdWallets.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/shareBudget.dart';
 import 'package:budget/struct/syncClient.dart';
@@ -26,7 +29,7 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 46;
+int schemaVersionGlobal = 48;
 
 // To update and migrate the database, check the README
 
@@ -260,6 +263,9 @@ class Wallets extends Table {
   IntColumn get order => integer()();
   TextColumn get currency => text().nullable()();
   TextColumn get currencyFormat => text().nullable()();
+  // Household sharing: Firebase uid of the member who owns this account.
+  // null = created in single-user mode or before household login existed.
+  TextColumn get ownerUid => text().nullable()();
   IntColumn get decimals => integer().withDefault(Constant(2))();
   TextColumn get homePageWidgetDisplay => text()
       .nullable()
@@ -334,6 +340,15 @@ class Transactions extends Table {
       text().references(Objectives, #objectivePk).nullable()();
   TextColumn get budgetFksExclude =>
       text().map(const StringListInColumnConverter()).nullable()();
+  // Household sharing: Firebase uid of the member who created this transaction.
+  // null = created in single-user mode or before household login existed.
+  TextColumn get ownerUid => text().nullable()();
+  // Private transactions are visible only to their owner and are left out of
+  // household totals. Always false in single-user mode.
+  BoolColumn get isPrivate => boolean().withDefault(const Constant(false))();
+  // Household sync: the dateTimeModified that was last uploaded to the household.
+  // The transaction still needs uploading while this is null or older than dateTimeModified.
+  DateTimeColumn get householdSyncedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {transactionPk};
@@ -596,22 +611,30 @@ class AllWallets {
   final Map<String, TransactionWallet> indexedByPk;
   AllWallets({required this.list, required this.indexedByPk});
 
+  /// This person's own accounts: [list] without the placeholder accounts that hold other
+  /// household members' transactions. Use this for anything the person picks from.
+  List<TransactionWallet> get ownList =>
+      list.where((wallet) => !isPlaceholderWalletPk(wallet.walletPk)).toList();
+
   bool allContainSameCurrency() {
-    if (list.isEmpty) {
+    // Placeholder accounts have no currency of their own, so they are left out here.
+    final List<TransactionWallet> wallets = ownList;
+    if (wallets.isEmpty) {
       return false;
     }
-    final String? firstCurrency = list.first.currency;
-    return list.every((wallet) => wallet.currency == firstCurrency);
+    final String? firstCurrency = wallets.first.currency;
+    return wallets.every((wallet) => wallet.currency == firstCurrency);
   }
 
   bool containsMultipleAccountsWithSameCurrency() {
-    if (list.isEmpty) {
+    final List<TransactionWallet> wallets = ownList;
+    if (wallets.isEmpty) {
       return false;
     }
 
     final Set<String> uniqueCurrencies = {};
 
-    for (TransactionWallet wallet in list) {
+    for (TransactionWallet wallet in wallets) {
       final String? currency = wallet.currency;
 
       if (uniqueCurrencies.contains(currency)) {
@@ -1161,6 +1184,44 @@ class FinanceDatabase extends _$FinanceDatabase {
               } catch (e) {
                 print(
                     "Migration Error: Error creating column objectives.type " +
+                        e.toString());
+              }
+            },
+            from46To47: (m, schema) async {
+              // Household sharing: who owns an account/transaction, and the
+              // private-transaction flag. Existing rows keep ownerUid = null
+              // and isPrivate = false, so single-user mode is unchanged.
+              try {
+                await m.addColumn(schema.wallets, schema.wallets.ownerUid);
+              } catch (e) {
+                print("Migration Error: Error creating column wallets.ownerUid " +
+                    e.toString());
+              }
+              try {
+                await m.addColumn(
+                    schema.transactions, schema.transactions.ownerUid);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.ownerUid " +
+                        e.toString());
+              }
+              try {
+                await m.addColumn(
+                    schema.transactions, schema.transactions.isPrivate);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.isPrivate " +
+                        e.toString());
+              }
+            },
+            from47To48: (m, schema) async {
+              // Household sync: remembers what was last uploaded.
+              try {
+                await m.addColumn(
+                    schema.transactions, schema.transactions.householdSyncedAt);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating column transactions.householdSyncedAt " +
                         e.toString());
               }
             },
@@ -2419,7 +2480,12 @@ class FinanceDatabase extends _$FinanceDatabase {
                   ? Constant(true)
                   : w.name
                       .collate(Collate.noCase)
-                      .like("%" + (searchFor) + "%"))))
+                      .like("%" + (searchFor) + "%")) &
+              // Other household members' accounts (and their totals) stay out of
+              // account lists unless the owner switched balances on.
+              (householdHidesOtherMembersWallets
+                  ? w.walletPk.like(kPlaceholderWalletPrefix + "%").not()
+                  : Constant(true))))
           ..orderBy([(w) => OrderingTerm.asc(w.order)]))
         .join([
       leftOuterJoin(
@@ -5783,6 +5849,8 @@ class FinanceDatabase extends _$FinanceDatabase {
 
     Expression<bool> isInWalletPks =
         onlyShowBasedOnWalletFks(tbl, searchFilters.walletPks);
+    Expression<bool> isInMemberUids =
+        onlyShowBasedOnOwnerUids(tbl, searchFilters.memberUids);
     Expression<bool> isInCategoryPks =
         onlyShowBasedOnCategoryFks(tbl, searchFilters.categoryPks, null);
     Expression<bool> isInSubcategoryPks =
@@ -5937,6 +6005,7 @@ class FinanceDatabase extends _$FinanceDatabase {
         : tbl.note.collate(Collate.noCase).like("%" + noteContains + "%");
 
     return isInWalletPks &
+        isInMemberUids &
         isInCategoryPks &
         isInSubcategoryPks &
         isInBudgetPks &
@@ -6110,7 +6179,22 @@ class FinanceDatabase extends _$FinanceDatabase {
         includeIncome &
         includeDebtAndCredit &
         includeAddedToObjective &
-        includeBalanceCorrection;
+        includeBalanceCorrection &
+        householdViewFilter(tbl);
+  }
+
+  /// Household view (Everyone / Mine), same rule as householdTransactionVisible().
+  /// Always true outside a household, so single-user mode is untouched.
+  Expression<bool> householdViewFilter($TransactionsTable tbl) {
+    if (!householdViewFilterActive) return Constant(true);
+    final String myUid = currentHouseholdUserUid;
+    if (householdViewIsMine) {
+      return tbl.ownerUid.isNull() |
+          tbl.ownerUid.equals('') |
+          (myUid == "" ? Constant(false) : tbl.ownerUid.equals(myUid));
+    }
+    return tbl.isPrivate.equals(false) &
+        (tbl.ownerUid.isNull() | tbl.ownerUid.equals('').not());
   }
 
   Stream<double?> watchTotalSpentByCurrentUserOnly(
@@ -6336,6 +6420,19 @@ class FinanceDatabase extends _$FinanceDatabase {
     return (walletFks != null && walletFks.length > 0
         ? tbl.walletFk.isIn(walletFks)
         : Constant(true));
+  }
+
+  /// Only transactions added by one of these household members. Transactions nobody owns yet
+  /// (just created, not claimed) count as this person's own.
+  Expression<bool> onlyShowBasedOnOwnerUids(
+      $TransactionsTable tbl, List<String>? ownerUids) {
+    if (ownerUids == null || ownerUids.isEmpty) return Constant(true);
+    final String myUid = currentHouseholdUserUid;
+    Expression<bool> match = tbl.ownerUid.isIn(ownerUids);
+    if (myUid != "" && ownerUids.contains(myUid)) {
+      match = match | tbl.ownerUid.isNull();
+    }
+    return match;
   }
 
   Expression<bool> onlyShowBasedOnMethodAdded(

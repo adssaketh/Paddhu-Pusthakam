@@ -2,6 +2,7 @@ import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/addTransactionPage.dart';
+import 'package:budget/pages/householdPage.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
@@ -207,6 +208,16 @@ class AccountsPageState extends State<AccountsPage> {
                         ),
                       ),
                       SizedBox(height: 25),
+                      SettingsContainer(
+                        title: "Household",
+                        description:
+                            "Share a budget with the people you live with",
+                        icon: Icons.groups_rounded,
+                        onTap: () {
+                          pushRoute(context, HouseholdPage());
+                        },
+                      ),
+                      SizedBox(height: 15),
                       Padding(
                         padding: const EdgeInsetsDirectional.symmetric(
                             horizontal: 18.0),
