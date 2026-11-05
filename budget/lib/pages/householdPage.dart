@@ -1,4 +1,5 @@
 import 'package:budget/functions.dart';
+import 'package:budget/pages/householdSpendingPage.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/settings.dart';
@@ -381,6 +382,12 @@ class _HouseholdPageState extends State<HouseholdPage> {
                 : "$_waiting waiting to upload. Tap to upload now.",
             icon: Icons.cloud_upload_rounded,
             onTap: _syncNow,
+          ),
+          SettingsContainer(
+            title: "Spending by member",
+            description: "Who spent how much this month, shared transactions only.",
+            icon: Icons.pie_chart_rounded,
+            onTap: () => pushRoute(context, const HouseholdSpendingPage()),
           ),
           SettingsContainer(
             title: "Share my earlier transactions",

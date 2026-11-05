@@ -24,6 +24,7 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdDownload.dart';
+import 'package:budget/struct/householdMembers.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
@@ -152,6 +153,7 @@ Future<void> releaseHouseholdTransactions() async {
   await updateSettings("householdDeleteCursor", 0, updateGlobalState: false);
   await updateSettings("householdCategoriesHash", "",
       updateGlobalState: false);
+  await clearHouseholdMemberNames();
 }
 
 /// Matches this phone's sync to the household state (call after the household was re-checked).
@@ -258,8 +260,15 @@ Future<void> _uploadTransactions(
         .get();
     if (waiting.isEmpty) return;
 
+    // A row that was edited again after it was uploaded may have been edited later on another
+    // phone of this person meanwhile. Its newer version is not overwritten: it comes in through
+    // the download side, which takes the newer edit.
+    final Set<String> newerOnServer =
+        await _rowsEditedLaterOnServer(db, hid, waiting);
+
     final WriteBatch batch = db.batch();
     for (final Transaction transaction in waiting) {
+      if (newerOnServer.contains(transaction.transactionPk)) continue;
       batch.set(
         db.doc('households/$hid/transactions/${transaction.transactionPk}'),
         _transactionDocument(transaction, uid),
@@ -267,7 +276,8 @@ Future<void> _uploadTransactions(
     }
     await batch.commit().timeout(_serverTimeout);
 
-    // Remember what was uploaded. If a transaction was edited meanwhile it is simply uploaded again.
+    // Remember what was uploaded (and which rows were left to the download side, so they are not
+    // picked up again and again). If a transaction was edited meanwhile it is simply uploaded again.
     await database.batch((b) {
       for (final Transaction transaction in waiting) {
         b.update(
@@ -281,6 +291,38 @@ Future<void> _uploadTransactions(
       }
     });
   }
+}
+
+/// Which of the [waiting] rows (that were uploaded before) have a later edit in the household.
+/// Looked up one document at a time, so only the rules for reading one's own document apply.
+/// If a lookup fails the row is simply uploaded as before.
+Future<Set<String>> _rowsEditedLaterOnServer(
+    FirebaseFirestore db, String hid, List<Transaction> waiting) async {
+  final List<Transaction> toCheck =
+      waiting.where((t) => t.householdSyncedAt != null).toList();
+  final Set<String> newer = {};
+  for (int start = 0; start < toCheck.length; start += 20) {
+    final List<Transaction> chunk =
+        toCheck.sublist(start, min(start + 20, toCheck.length));
+    await Future.wait(chunk.map((Transaction transaction) async {
+      try {
+        final DocumentSnapshot<Map<String, dynamic>> doc = await db
+            .doc('households/$hid/transactions/${transaction.transactionPk}')
+            .get(const GetOptions(source: Source.server))
+            .timeout(_serverTimeout);
+        final Map<String, dynamic>? data = doc.data();
+        if (data == null) return;
+        final Transaction remote = Transaction.fromJson(data);
+        if (householdRemoteIsNewer(
+            remote.dateTimeModified, transaction.dateTimeModified)) {
+          newer.add(transaction.transactionPk);
+        }
+      } catch (e) {
+        // Not readable or not there: nothing to protect.
+      }
+    }));
+  }
+  return newer;
 }
 
 Map<String, dynamic> _categoryDocument(TransactionCategory category) {

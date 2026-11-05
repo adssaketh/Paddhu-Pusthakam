@@ -22,6 +22,10 @@ const String kHouseholdViewMine = "mine";
 bool householdOwnerIsMe(String? ownerUid, String myUid) =>
     ownerUid == null || ownerUid == "" || ownerUid == myUid;
 
+/// The owner a copy of a transaction gets: a copy of a personal one ("") stays personal, every
+/// other copy is a new entry of whoever makes it (null = not claimed yet).
+String? householdOwnerUidForCopy(String? ownerUid) => ownerUid == "" ? "" : null;
+
 /// Whether a transaction appears in the lists and totals of [view].
 bool householdTransactionVisible({
   required bool inHousehold,

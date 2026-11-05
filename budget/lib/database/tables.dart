@@ -5849,6 +5849,8 @@ class FinanceDatabase extends _$FinanceDatabase {
 
     Expression<bool> isInWalletPks =
         onlyShowBasedOnWalletFks(tbl, searchFilters.walletPks);
+    Expression<bool> isInMemberUids =
+        onlyShowBasedOnOwnerUids(tbl, searchFilters.memberUids);
     Expression<bool> isInCategoryPks =
         onlyShowBasedOnCategoryFks(tbl, searchFilters.categoryPks, null);
     Expression<bool> isInSubcategoryPks =
@@ -6003,6 +6005,7 @@ class FinanceDatabase extends _$FinanceDatabase {
         : tbl.note.collate(Collate.noCase).like("%" + noteContains + "%");
 
     return isInWalletPks &
+        isInMemberUids &
         isInCategoryPks &
         isInSubcategoryPks &
         isInBudgetPks &
@@ -6417,6 +6420,19 @@ class FinanceDatabase extends _$FinanceDatabase {
     return (walletFks != null && walletFks.length > 0
         ? tbl.walletFk.isIn(walletFks)
         : Constant(true));
+  }
+
+  /// Only transactions added by one of these household members. Transactions nobody owns yet
+  /// (just created, not claimed) count as this person's own.
+  Expression<bool> onlyShowBasedOnOwnerUids(
+      $TransactionsTable tbl, List<String>? ownerUids) {
+    if (ownerUids == null || ownerUids.isEmpty) return Constant(true);
+    final String myUid = currentHouseholdUserUid;
+    Expression<bool> match = tbl.ownerUid.isIn(ownerUids);
+    if (myUid != "" && ownerUids.contains(myUid)) {
+      match = match | tbl.ownerUid.isNull();
+    }
+    return match;
   }
 
   Expression<bool> onlyShowBasedOnMethodAdded(

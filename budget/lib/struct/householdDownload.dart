@@ -16,8 +16,11 @@
 //    household has them.
 //
 // Safety rules (this file never breaks these)
-//  - A row of this person (ownerUid == my uid) is never overwritten or deleted here. It is only
-//    inserted when it is missing on this phone and was not deleted here on purpose.
+//  - A row of this person (ownerUid == my uid) is never deleted here. It is inserted when it is
+//    missing on this phone and was not deleted here on purpose. It is updated only when the same
+//    row was edited later on another phone of this person (remote dateTimeModified is newer), and
+//    then only the fields that are uploaded: what stays on a phone (links to goals and loans,
+//    method added, ...) is kept.
 //  - Remote deletions (or a member making a transaction private) only remove other members' rows.
 //  - Applying remote data never causes an upload: other members' rows are not mine, and my own
 //    inserted rows are marked as already uploaded (householdSyncedAt).
@@ -30,6 +33,7 @@ import 'dart:math';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdMembers.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/householdView.dart';
@@ -241,6 +245,7 @@ Future<void> _applyMembers(
     }
   }
   _memberNames = names;
+  await saveHouseholdMemberNames(names);
 
   final List<TransactionWallet> placeholders =
       await (database.select(database.wallets)
@@ -369,6 +374,7 @@ Future<void> _applyTransactionChunk(
 
   final List<String> removePks = [];
   final List<TransactionsCompanion> writes = [];
+  final Map<String, TransactionsCompanion> ownRowUpdates = {};
   final Set<String> membersNeedingWallet = {};
 
   for (final change in chunk) {
@@ -396,16 +402,48 @@ Future<void> _applyTransactionChunk(
     }
 
     if (ownerId == myUid) {
-      // My own transaction: only restore it when it is missing here.
-      if (mine != null || deletedHere.contains(pk)) continue;
-      final String? walletFk =
-          walletPks.contains(remote.walletFk) ? remote.walletFk : fallbackWalletPk;
-      if (walletFk == null) continue;
-      writes.add(remote.toCompanion(false).copyWith(
-            ownerUid: Value(myUid),
-            walletFk: Value(walletFk),
+      if (deletedHere.contains(pk)) continue;
+      if (mine == null) {
+        // My own transaction is missing here: restore it.
+        final String? walletFk = walletPks.contains(remote.walletFk)
+            ? remote.walletFk
+            : fallbackWalletPk;
+        if (walletFk == null) continue;
+        writes.add(remote.toCompanion(false).copyWith(
+              ownerUid: Value(myUid),
+              walletFk: Value(walletFk),
+              householdSyncedAt: Value(remote.dateTimeModified),
+            ));
+        continue;
+      }
+      // I edited it on another phone and that edit is newer than mine: take it. An edit made
+      // here that is newer (or the same) is kept and goes out with the next upload.
+      if (!householdOwnerIsMe(mine.ownerUid, myUid)) continue;
+      if (!householdRemoteIsNewer(remote.dateTimeModified, mine.dateTimeModified)) {
+        continue;
+      }
+      ownRowUpdates[pk] = remote.toCompanion(false).copyWith(
+            // Kept as they are on this phone: what is never uploaded, and my account choice.
+            transactionPk: const Value.absent(),
+            ownerUid: const Value.absent(),
+            walletFk: walletPks.contains(remote.walletFk) &&
+                    !isPlaceholderWalletPk(remote.walletFk)
+                ? Value(remote.walletFk)
+                : const Value.absent(),
+            sharedKey: const Value.absent(),
+            sharedOldKey: const Value.absent(),
+            sharedStatus: const Value.absent(),
+            sharedDateUpdated: const Value.absent(),
+            sharedReferenceBudgetPk: const Value.absent(),
+            transactionOwnerEmail: const Value.absent(),
+            transactionOriginalOwnerEmail: const Value.absent(),
+            methodAdded: const Value.absent(),
+            objectiveFk: const Value.absent(),
+            objectiveLoanFk: const Value.absent(),
+            budgetFksExclude: const Value.absent(),
+            pairedTransactionFk: const Value.absent(),
             householdSyncedAt: Value(remote.dateTimeModified),
-          ));
+          );
       continue;
     }
 
@@ -430,12 +468,16 @@ Future<void> _applyTransactionChunk(
 
   await _ensurePlaceholderWallets(membersNeedingWallet, wallets);
 
-  if (writes.isEmpty && removePks.isEmpty) return;
+  if (writes.isEmpty && removePks.isEmpty && ownRowUpdates.isEmpty) return;
   await database.batch((b) {
     for (final TransactionsCompanion companion in writes) {
       b.insert(database.transactions, companion,
           mode: InsertMode.insertOrReplace);
     }
+    ownRowUpdates.forEach((String pk, TransactionsCompanion companion) {
+      b.update(database.transactions, companion,
+          where: (t) => t.transactionPk.equals(pk));
+    });
     if (removePks.isNotEmpty) {
       b.deleteWhere(database.transactions,
           (t) => t.transactionPk.isIn(removePks));

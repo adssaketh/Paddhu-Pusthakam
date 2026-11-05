@@ -7,6 +7,7 @@ import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/listenableSelector.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
+import 'package:budget/widgets/householdGuard.dart';
 import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/struct/upcomingTransactionsFunctions.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
@@ -317,15 +318,7 @@ class TransactionEntry extends StatelessWidget {
         margin: EdgeInsetsDirectional.zero,
         borderRadius: 100,
         onTap: () {
-          if (!canEditTransactionOwnedBy(transaction.ownerUid)) {
-            openSnackbar(
-              SnackbarMessage(
-                title: kCannotEditOthersMessage,
-                icon: Icons.lock_outline_rounded,
-              ),
-            );
-            return;
-          }
+          if (!guardCanEditTransaction(transaction.ownerUid)) return;
           openContainer();
         },
       );
@@ -696,16 +689,8 @@ class TransactionEntry extends StatelessWidget {
                             },
                             onTap: () async {
                               // Members change only their own transactions.
-                              if (!canEditTransactionOwnedBy(
-                                  transaction.ownerUid)) {
-                                openSnackbar(
-                                  SnackbarMessage(
-                                    title: kCannotEditOthersMessage,
-                                    icon: Icons.lock_outline_rounded,
-                                  ),
-                                );
-                                return;
-                              }
+                              if (!guardCanEditTransaction(
+                                  transaction.ownerUid)) return;
                               openContainer();
                             },
                             child: AnimatedContainer(

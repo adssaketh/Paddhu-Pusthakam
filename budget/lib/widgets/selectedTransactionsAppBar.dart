@@ -6,11 +6,13 @@ import 'package:budget/pages/editObjectivesPage.dart';
 import 'package:budget/pages/editWalletsPage.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/householdView.dart';
 import 'package:budget/struct/listenableSelector.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
+import 'package:budget/widgets/householdGuard.dart';
 import 'package:budget/widgets/moreIcons.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
@@ -448,8 +450,10 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                             text: "change-date".tr(),
                             onTap: () async {
                               List<Transaction> transactions =
-                                  await database.getTransactionsFromPk(
-                                      selectedTransactionPks);
+                                  onlyEditableTransactions(
+ await database.getTransactionsFromPk(
+ selectedTransactionPks));
+ if (transactions.isEmpty) return;
                               if (transactions.length <= 0) return;
                               DateTime? selectedDate =
                                   await selectDateAndTimeSequence(
@@ -535,8 +539,10 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                                 return;
 
                               List<Transaction> transactions =
-                                  await database.getTransactionsFromPk(
-                                      selectedTransactionPks);
+                                  onlyEditableTransactions(
+ await database.getTransactionsFromPk(
+ selectedTransactionPks));
+ if (transactions.isEmpty) return;
                               await database.changeTransactionsTitle(
                                   transactions, setText);
 
@@ -582,8 +588,10 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                               TransactionCategory? subCategory =
                                   mainAndSubcategory.sub;
                               List<Transaction> transactions =
-                                  await database.getTransactionsFromPk(
-                                      selectedTransactionPks);
+                                  onlyEditableTransactions(
+ await database.getTransactionsFromPk(
+ selectedTransactionPks));
+ if (transactions.isEmpty) return;
                               await database.moveTransactionsToCategory(
                                 transactions,
                                 category.categoryPk,
@@ -625,8 +633,10 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                                 );
                                 if (wallet == null) return;
                                 List<Transaction> transactions =
-                                    await database.getTransactionsFromPk(
-                                        selectedTransactionPks);
+                                    onlyEditableTransactions(
+ await database.getTransactionsFromPk(
+ selectedTransactionPks));
+ if (transactions.isEmpty) return;
                                 await database.moveWalletTransactions(
                                   Provider.of<AllWallets>(context,
                                       listen: false),
@@ -676,8 +686,10 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                                   budgetPkToMoveTo = budget.budgetPk;
                                 }
                                 List<Transaction> transactions =
-                                    await database.getTransactionsFromPk(
-                                        selectedTransactionPks);
+                                    onlyEditableTransactions(
+ await database.getTransactionsFromPk(
+ selectedTransactionPks));
+ if (transactions.isEmpty) return;
                                 int numberMoved =
                                     await database.moveTransactionsToBudget(
                                         transactions, budgetPkToMoveTo);
@@ -730,8 +742,10 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                                   objectivePkToMoveTo = objective.objectivePk;
                                 }
                                 List<Transaction> transactions =
-                                    await database.getTransactionsFromPk(
-                                        selectedTransactionPks);
+                                    onlyEditableTransactions(
+ await database.getTransactionsFromPk(
+ selectedTransactionPks));
+ if (transactions.isEmpty) return;
                                 int numberMoved =
                                     await database.moveTransactionsToObjective(
                                   transactions,
@@ -781,8 +795,10 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                                   objectivePkToMoveTo = objective.objectivePk;
                                 }
                                 List<Transaction> transactions =
-                                    await database.getTransactionsFromPk(
-                                        selectedTransactionPks);
+                                    onlyEditableTransactions(
+ await database.getTransactionsFromPk(
+ selectedTransactionPks));
+ if (transactions.isEmpty) return;
                                 int numberMoved =
                                     await database.moveTransactionsToObjective(
                                   transactions,
@@ -908,6 +924,8 @@ class EditSelectedTransactionsContainer extends StatelessWidget {
 
 Future settleTransactions(String transactionPk) async {
   Transaction transaction = await database.getTransactionFromPk(transactionPk);
+  // Members settle only their own transactions.
+  if (!canEditTransactionOwnedBy(transaction.ownerUid)) return;
   if (transaction.type == TransactionSpecialType.credit ||
       transaction.type == TransactionSpecialType.debt) {
     Transaction transactionNew = transaction.copyWith(
@@ -937,6 +955,8 @@ Future duplicateTransaction(
   transaction = transaction.copyWith(
     dateCreated: transaction.dateCreated.add(Duration(seconds: 1)),
     pairedTransactionFk: Value(null),
+    ownerUid: Value(householdOwnerUidForCopy(transaction.ownerUid)),
+    householdSyncedAt: Value(null),
   );
   int? rowId = await database.createOrUpdateTransaction(
     transaction,
@@ -1045,6 +1065,8 @@ Future duplicateMultipleTransactions(
             transactionPk: Value.absent(),
             pairedTransactionFk: Value(
                 generatedMatchingPairKeys[transaction.pairedTransactionFk]),
+            ownerUid: Value(householdOwnerUidForCopy(transaction.ownerUid)),
+            householdSyncedAt: Value(null),
           );
     } else if (transaction.categoryFk == "0" &&
         transaction.pairedTransactionFk == null &&
@@ -1055,11 +1077,15 @@ Future duplicateMultipleTransactions(
             transactionPk: Value(
                 generatedMatchingPairKeys[transaction.transactionPk] ?? ""),
             pairedTransactionFk: Value.absent(),
+            ownerUid: Value(householdOwnerUidForCopy(transaction.ownerUid)),
+            householdSyncedAt: Value(null),
           );
     }
 
     return transaction.toCompanion(true).copyWith(
           transactionPk: Value.absent(),
+          ownerUid: Value(householdOwnerUidForCopy(transaction.ownerUid)),
+          householdSyncedAt: Value(null),
         );
   }).toList();
 
