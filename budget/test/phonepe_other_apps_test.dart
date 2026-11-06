@@ -123,6 +123,47 @@ Powered By UPI HDFC BANK''')!;
   check(mk.amount == 133.19 && mk.party == 'Zomato Limited', 'mobikwik ${mk.amount} "${mk.party}"');
   check(mk.date == DateTime(2026, 10, 28, 11, 11) && mk.utr == '104332350049' && mk.accountDigits == '6372', 'mobikwik date/ref/account ${mk.date} ${mk.utr} ${mk.accountDigits}');
 
+  // ---- the amount must be the paid amount, never an id or a number inside another word
+  String phonePe(String amounts) => '''Transaction Successful
+06:04 am on 06 Nov 2026
+Paid to
+B
+Blinkit
+blinkit.payu@hdfcbank
+$amounts
+Transfer Details
+Message
+UPIIntent
+PhonePe Transaction ID
+T2611060604060808497253
+Debited from
+XXXX566372
+₹286
+UTR: 995940082093''';
+  final PhonePeEntry normal = parseUpiScreenshotText(phonePe('₹286'))!;
+  check(normal.amount == 286 && normal.isExpense, 'phonepe amount ${normal.amount}');
+  check(normal.party == 'Blinkit' && normal.date == DateTime(2026, 11, 6, 6, 4), 'phonepe party/date "${normal.party}" ${normal.date}');
+  check(parseUpiScreenshotText(phonePe('₹ 7000000000000'))!.amount == 286,
+      'a long number after a rupee sign is not an amount');
+  check(parseUpiScreenshotText(phonePe('₹\n7995940082093'))!.amount == 286,
+      'a UTR-sized number on the next line is not an amount');
+  check(parseUpiScreenshotText(phonePe('Offers 500\n₹286'))!.amount == 286,
+      'Rs inside another word ("Offers 500") is not a rupee sign');
+  check(parseUpiScreenshotText(phonePe('₹28\n₹286'))!.amount == 286,
+      'the amount shown twice wins over one that was read once');
+  check(parseUpiScreenshotText(phonePe('₹286\n₹28'))!.amount == 286, 'the same, in the other order');
+  check(parseUpiScreenshotText(phonePe('INR 1,250.50\nINR 1,250.50'))!.amount == 1250.5, 'INR with commas and paise');
+  check(
+      parseUpiScreenshotText('''Transaction Successful
+06:04 am on 06 Nov 2026
+Paid to
+Blinkit
+₹ 7000000000000
+T2611060604060808497253''') ==
+          null,
+      'when only an impossible amount is found, nothing is guessed');
+  check(kMaxPlausiblePaymentAmount == 10000000, 'the limit for one payment');
+
   check(parseUpiScreenshotText('Payment failed\n₹50\nUPI\n1 Nov 2026 5:00 pm') == null, 'failed ignored');
   check(parseUpiScreenshotText('hello 12 Oct 2026') == null, 'random text ignored');
 }
