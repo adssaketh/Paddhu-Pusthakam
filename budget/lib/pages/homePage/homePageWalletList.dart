@@ -1,3 +1,5 @@
+import 'package:budget/struct/householdSharingRules.dart';
+import 'package:budget/widgets/householdSharedSection.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
@@ -106,8 +108,15 @@ class HomePageWalletList extends StatelessWidget {
                     },
                   ),
                   const HomePageLoanOutstanding(),
+                  // Loans and deposits other household members shared with this person (nothing if none).
+                  const HouseholdSharedSection(
+                      kind: kSharedKindLoan,
+                      padding: EdgeInsetsDirectional.fromSTEB(16, 4, 16, 4)),
                   const HomePageCardDues(),
                   const HomePageFixedDeposits(),
+                  const HouseholdSharedSection(
+                      kind: kSharedKindFixedDeposit,
+                      padding: EdgeInsetsDirectional.fromSTEB(16, 4, 16, 4)),
                   if (appStateSettings["walletsListCurrencyBreakdown"] ==
                           true &&
                       Provider.of<AllWallets>(context)
