@@ -62,6 +62,23 @@ Future<String> householdDiagnostics() async {
   out.writeln("\nOn this phone: ${local.length} transactions");
   out.writeln("  mine $mine, from others $others, kept personal $personal, not yet claimed $fresh, private $priv, waiting to upload $waiting");
 
+  // Accounts and a few rows from other people: shows which account those rows sit in and its currency.
+  final List<TransactionWallet> wallets = await database.select(database.wallets).get();
+  final String selected = (appStateSettings["selectedWalletPk"] ?? "").toString();
+  out.writeln("\nAccounts on this phone (selected: ${selected.length > 8 ? selected.substring(0, 8) : selected}):");
+  for (final TransactionWallet w in wallets) {
+    final String pk = w.walletPk.length > 8 ? w.walletPk.substring(0, 8) : w.walletPk;
+    out.writeln("  ${w.name} | $pk | currency ${w.currency ?? 'none'} | owner ${w.ownerUid == null ? '-' : (w.ownerUid!.length > 6 ? w.ownerUid!.substring(0, 6) : w.ownerUid)}");
+  }
+  int shown = 0;
+  out.writeln("Rows from others:");
+  for (final Transaction t in local) {
+    if (t.ownerUid == null || t.ownerUid == '' || t.ownerUid == uid) continue;
+    if (shown++ >= 3) break;
+    final String pk = t.walletFk.length > 8 ? t.walletFk.substring(0, 8) : t.walletFk;
+    out.writeln("  ${t.name} | amount ${t.amount} | account $pk");
+  }
+
   if (!isInHousehold) return out.toString();
   final FirebaseFirestore? db = await firebaseGetDBInstance();
   final String uid2 = currentHouseholdUserUid;
