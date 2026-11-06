@@ -503,7 +503,12 @@ Future<void> _applyTransactionChunk(
 
     // Somebody else's transaction.
     if (data['isPrivate'] != false) continue; // the rules do not allow this; be safe anyway
-    if (mine != null) {
+    // The same transaction already sits here as if it were mine, and it was never uploaded
+    // (for example this phone started from a copy of their data). It is theirs: their copy replaces it.
+    final bool copyOfTheirs = mine != null &&
+        mine.householdSyncedAt == null &&
+        (mine.ownerUid == null || mine.ownerUid == myUid);
+    if (mine != null && !copyOfTheirs) {
       if (mine.ownerUid != ownerId) continue; // never touch a row that is not theirs
       if (!householdRemoteIsNewer(remote.dateTimeModified, mine.dateTimeModified)) {
         continue;
