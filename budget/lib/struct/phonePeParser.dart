@@ -717,3 +717,29 @@ PingImport phonePeEntriesToImport(List<PhonePeEntry> entries) {
   rows.sort((a, b) => b.date.compareTo(a.date));
   return PingImport(rows: rows, skipped: skipped);
 }
+
+
+/// The best of several readings of the same picture (the original and its prepared copies).
+/// Readings with a rupee sign in front of the amount beat those without; among those, the amount seen
+/// most often wins, and on a tie the earlier reading. null when there is no reading at all.
+PhonePeEntry? chooseBestReading(List<PhonePeEntry?> readings) {
+  final List<PhonePeEntry> all = [for (final PhonePeEntry? r in readings) if (r != null) r];
+  if (all.isEmpty) return null;
+  final List<PhonePeEntry> confirmed = [for (final PhonePeEntry r in all) if (!r.amountUnconfirmed) r];
+  final List<PhonePeEntry> pool = confirmed.isNotEmpty ? confirmed : all;
+  final Map<int, int> votes = {};
+  for (final PhonePeEntry r in pool) {
+    final int key = (r.amount * 100).round();
+    votes[key] = (votes[key] ?? 0) + 1;
+  }
+  PhonePeEntry best = pool.first;
+  int bestVotes = votes[(best.amount * 100).round()]!;
+  for (final PhonePeEntry r in pool) {
+    final int v = votes[(r.amount * 100).round()]!;
+    if (v > bestVotes) {
+      best = r;
+      bestVotes = v;
+    }
+  }
+  return best;
+}
