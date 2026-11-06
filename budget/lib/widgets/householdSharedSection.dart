@@ -11,6 +11,7 @@ import 'package:budget/pages/householdSharedItemPage.dart';
 import 'package:budget/struct/fixedDeposit.dart';
 import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/loanSchedule.dart';
+import 'package:budget/widgets/financeCollapsible.dart';
 import 'package:budget/widgets/financeUi.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -25,11 +26,18 @@ class HouseholdSharedSection extends StatefulWidget {
   /// [kind] is [kSharedKindLoan] or [kSharedKindFixedDeposit]. [padding] is only added when the list is
   /// shown, so a person without shared items sees no extra space.
   const HouseholdSharedSection(
-      {required this.kind, this.padding = EdgeInsets.zero, Key? key})
+      {required this.kind,
+      this.padding = EdgeInsets.zero,
+      this.collapsible = false,
+      Key? key})
       : super(key: key);
 
   final String kind;
   final EdgeInsetsGeometry padding;
+
+  /// True on the Home page: one row (title and total) that opens to show the items, like the
+  /// person's own Loans and Fixed deposits rows.
+  final bool collapsible;
 
   @override
   State<HouseholdSharedSection> createState() => _HouseholdSharedSectionState();
@@ -64,6 +72,38 @@ class _HouseholdSharedSectionState extends State<HouseholdSharedSection> {
         ? _loanCards(context, copies, money)
         : _depositCards(context, copies, money);
     if (cards.isEmpty) return const SizedBox.shrink();
+
+    if (widget.collapsible) {
+      final bool loans = widget.kind == kSharedKindLoan;
+      final DateTime today = DateTime.now();
+      double total = 0;
+      for (final SharedCopy copy in copies) {
+        if (loans) {
+          final LoanTerms? terms = sharedLoanTerms(copy.payload);
+          if (terms != null && !sharedLoanArchived(copy.payload)) {
+            total += sharedLoanProgress(copy.payload, terms).outstanding;
+          }
+        } else {
+          final FixedDeposit? fd = sharedDeposit(copy.payload);
+          if (fd != null && !fd.closed) total += currentValue(fd, today);
+        }
+      }
+      return Padding(
+        padding: widget.padding,
+        child: FinCollapsible(
+          settingKey: loans ? 'homeSharedLoansExpanded' : 'homeSharedDepositsExpanded',
+          icon: loans ? Icons.account_balance_outlined : Icons.savings_outlined,
+          title: loans ? 'Loans shared with you' : 'Fixed deposits shared with you',
+          subtitle:
+              '${cards.length} shared · ${loans ? 'left to pay' : 'worth today'} · not in your totals',
+          total: money(total),
+          details: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: cards),
+          ),
+        ),
+      );
+    }
 
     return Padding(
       padding: widget.padding,

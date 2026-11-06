@@ -111,12 +111,12 @@ class HomePageWalletList extends StatelessWidget {
                   // Loans and deposits other household members shared with this person (nothing if none).
                   const HouseholdSharedSection(
                       kind: kSharedKindLoan,
-                      padding: EdgeInsetsDirectional.fromSTEB(16, 4, 16, 4)),
+                      collapsible: true),
                   const HomePageCardDues(),
                   const HomePageFixedDeposits(),
                   const HouseholdSharedSection(
                       kind: kSharedKindFixedDeposit,
-                      padding: EdgeInsetsDirectional.fromSTEB(16, 4, 16, 4)),
+                      collapsible: true),
                   if (appStateSettings["walletsListCurrencyBreakdown"] ==
                           true &&
                       Provider.of<AllWallets>(context)
