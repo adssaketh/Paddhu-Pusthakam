@@ -3,8 +3,18 @@ import 'package:budget/widgets/textWidgets.dart';
 import 'package:flutter/material.dart';
 
 /// "Everyone | Mine" switch for transaction lists and totals. Shows nothing outside a household.
-class HouseholdViewToggle extends StatelessWidget {
+class HouseholdViewToggle extends StatefulWidget {
   const HouseholdViewToggle({super.key});
+
+  @override
+  State<HouseholdViewToggle> createState() => _HouseholdViewToggleState();
+}
+
+class _HouseholdViewToggleState extends State<HouseholdViewToggle> {
+  Future<void> _choose(String view) async {
+    await saveHouseholdView(view);
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,13 +28,13 @@ class HouseholdViewToggle extends StatelessWidget {
           ChoiceChip(
             label: TextFont(text: "Everyone", fontSize: 14),
             selected: !mine,
-            onSelected: (_) => saveHouseholdView(kHouseholdViewEveryone),
+            onSelected: (_) => _choose(kHouseholdViewEveryone),
           ),
           const SizedBox(width: 8),
           ChoiceChip(
             label: TextFont(text: "Mine", fontSize: 14),
             selected: mine,
-            onSelected: (_) => saveHouseholdView(kHouseholdViewMine),
+            onSelected: (_) => _choose(kHouseholdViewMine),
           ),
         ],
       ),

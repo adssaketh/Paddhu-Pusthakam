@@ -25,6 +25,7 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/householdDownload.dart';
 import 'package:budget/struct/householdMembers.dart';
+import 'package:budget/struct/householdDiagnostics.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSharedCopies.dart';
 import 'package:budget/struct/householdSharedItems.dart';
@@ -241,6 +242,7 @@ Future<String?> syncHouseholdNow() async {
     return null;
   } catch (e) {
     print("Household sync: ${e.toString()}");
+    noteHouseholdDownloadProblem("upload", e);
     return e is TimeoutException
         ? "Could not reach the server."
         : "Sync problem: ${e.toString()}";

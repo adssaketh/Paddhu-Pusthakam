@@ -1,5 +1,6 @@
 import 'package:budget/functions.dart';
 import 'package:budget/pages/householdSpendingPage.dart';
+import 'package:budget/struct/householdDiagnostics.dart';
 import 'package:budget/struct/householdService.dart';
 import 'package:budget/struct/householdSync.dart';
 import 'package:budget/struct/settings.dart';
@@ -123,6 +124,24 @@ class _HouseholdPageState extends State<HouseholdPage> {
 
   Future<void> _syncNow() async {
     await _run(syncHouseholdNow, success: "Everything is uploaded");
+  }
+
+  Future<void> _checkSync() async {
+    _say("Checking...");
+    final String report = await householdDiagnostics();
+    if (!mounted) return;
+    openPopup(
+      context,
+      title: "Sync check",
+      description: report,
+      onSubmitLabel: "Copy",
+      onCancelLabel: "Close",
+      onSubmit: () {
+        Clipboard.setData(ClipboardData(text: report));
+        popRoute(context);
+      },
+      onCancel: () => popRoute(context),
+    );
   }
 
   /// After creating or joining: ask what to share if that was not decided yet.
@@ -409,6 +428,12 @@ class _HouseholdPageState extends State<HouseholdPage> {
                 : "$_waiting waiting to upload. Tap to upload now.",
             icon: Icons.cloud_upload_rounded,
             onTap: _syncNow,
+          ),
+          SettingsContainer(
+            title: "Check sync",
+            description: "Shows what this phone and the server each hold, and any error.",
+            icon: Icons.fact_check_rounded,
+            onTap: _checkSync,
           ),
           SettingsContainer(
             title: "Spending by member",

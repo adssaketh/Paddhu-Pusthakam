@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// The Paddhu Pusthakam logo shown on the home page, in the empty space above the greeting.
 /// The picture is assets/images/app_logo.png (a copy of the launcher icon). Change [size] to make it bigger or smaller.
 class HomePageLogo extends StatelessWidget {
-  const HomePageLogo({this.size = 84, super.key});
+  const HomePageLogo({this.size = 108, super.key});
 
   final double size;
 

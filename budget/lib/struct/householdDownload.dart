@@ -38,6 +38,7 @@ import 'dart:math';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdDiagnostics.dart';
 import 'package:budget/struct/householdMembers.dart';
 import 'package:budget/struct/householdMergeRules.dart';
 import 'package:budget/struct/householdService.dart';
@@ -120,6 +121,7 @@ void _enqueue(int generation, Future<void> Function() task) {
       await task();
     } catch (e) {
       print("Household download: ${e.toString()}");
+      noteHouseholdDownloadProblem("applying", e);
     }
   });
 }
@@ -127,6 +129,7 @@ void _enqueue(int generation, Future<void> Function() task) {
 Future<void> _handleError(int generation, Object error) async {
   if (generation != _generation) return;
   print("Household download: ${error.toString()}");
+  noteHouseholdDownloadProblem("listener", error);
   if (error is FirebaseException && error.code == 'permission-denied') {
     // Most likely this person was removed from the household.
     await refreshHouseholdState();
@@ -247,6 +250,7 @@ Future<void> _applyOwnSharedItems(int generation,
 void _handleSharedItemsError(int generation, Object error) {
   if (generation != _generation) return;
   print("Household download: shared items: ${error.toString()}");
+  noteHouseholdDownloadProblem("shared items", error);
 }
 
 // ---------------------------------------------------------------------------
@@ -447,6 +451,7 @@ Future<void> _applyTransactionChunk(
       remote = Transaction.fromJson(data);
     } catch (e) {
       print("Household download: skipped a transaction: ${e.toString()}");
+      noteHouseholdDownloadProblem("skipped a transaction", e);
       continue;
     }
 
@@ -498,7 +503,12 @@ Future<void> _applyTransactionChunk(
 
     // Somebody else's transaction.
     if (data['isPrivate'] != false) continue; // the rules do not allow this; be safe anyway
-    if (mine != null) {
+    // The same transaction already sits here as if it were mine, and it was never uploaded
+    // (for example this phone started from a copy of their data). It is theirs: their copy replaces it.
+    final bool copyOfTheirs = mine != null &&
+        mine.householdSyncedAt == null &&
+        (mine.ownerUid == null || mine.ownerUid == myUid);
+    if (mine != null && !copyOfTheirs) {
       if (mine.ownerUid != ownerId) continue; // never touch a row that is not theirs
       if (!householdRemoteIsNewer(remote.dateTimeModified, mine.dateTimeModified)) {
         continue;
@@ -546,8 +556,35 @@ String? _fallbackWalletPk(List<TransactionWallet> wallets) {
   return own.first.walletPk;
 }
 
+/// The currency of this person's selected own account. Other members' placeholder accounts take
+/// the same one, so their amounts are shown as they were entered and never converted.
+String? _ownCurrency(List<TransactionWallet> wallets) {
+  final List<TransactionWallet> own =
+      wallets.where((w) => !isPlaceholderWalletPk(w.walletPk)).toList();
+  if (own.isEmpty) return null;
+  final String selected = (appStateSettings["selectedWalletPk"] ?? "").toString();
+  for (final TransactionWallet w in own) {
+    if (w.walletPk == selected) return w.currency;
+  }
+  return own.first.currency;
+}
+
+Future<void> _alignPlaceholderCurrencies(List<TransactionWallet> wallets) async {
+  final String? currency = _ownCurrency(wallets);
+  for (final TransactionWallet w in wallets) {
+    if (!isPlaceholderWalletPk(w.walletPk) || w.currency == currency) continue;
+    await (database.update(database.wallets)
+          ..where((x) => x.walletPk.equals(w.walletPk)))
+        .write(WalletsCompanion(
+      currency: Value(currency),
+      dateTimeModified: Value(DateTime.now()),
+    ));
+  }
+}
+
 Future<void> _ensurePlaceholderWallets(
     Set<String> memberUids, List<TransactionWallet> wallets) async {
+  await _alignPlaceholderCurrencies(wallets);
   if (memberUids.isEmpty) return;
   final Set<String> existing = wallets.map((w) => w.walletPk).toSet();
   int nextOrder = wallets.isEmpty ? 0 : wallets.map((w) => w.order).reduce(max) + 1;
@@ -560,6 +597,7 @@ Future<void> _ensurePlaceholderWallets(
             name: _walletNameFor(uid),
             order: nextOrder++,
             ownerUid: Value(uid),
+            currency: Value(_ownCurrency(wallets)),
             dateTimeModified: Value(DateTime.now()),
           ),
           mode: InsertMode.insertOrIgnore,

@@ -25,10 +25,16 @@ class PhonePeEntry {
     this.message = '',
     this.accountDigits = '',
     this.app = 'PhonePe',
+    this.amountUnconfirmed = false,
   });
 
   /// Which app the payment was made with ('PhonePe', 'Paytm', 'Google Pay', 'BHIM', 'CRED', ...).
   final String app;
+
+  /// True when the amount was taken from a line of digits because no rupee sign (or Rs / INR) was found
+  /// in the picture. The rupee sign is easily read as another character, even as a digit (a "7"), and then
+  /// that digit would be part of the amount, so such an amount has to be checked.
+  final bool amountUnconfirmed;
 
   /// Always positive.
   final double amount;
@@ -68,6 +74,44 @@ double? _money(String? s) {
   return double.tryParse(s.replaceAll(',', '').trim());
 }
 
+/// The most one payment can be. A UPI payment is far below this; a bigger "amount" is a transaction id, a
+/// UTR or some other long number that was read as money, and is never taken as the amount.
+const double kMaxPlausiblePaymentAmount = 10000000;
+
+double? _plausibleMoney(String? s) {
+  final double? v = _money(s);
+  return v != null && v > 0 && v <= kMaxPlausiblePaymentAmount ? v : null;
+}
+
+/// The first amount written with a rupee sign (or Rs / INR) that can be an amount.
+double? _firstPlausibleAmount(String t) {
+  for (final RegExpMatch m in _amountRe.allMatches(t)) {
+    final double? v = _plausibleMoney(m.group(1));
+    if (v != null) return v;
+  }
+  return null;
+}
+
+/// The amount written with a rupee sign (or Rs / INR). A payment page shows it more than once (at the top
+/// and again under "Debited from"), so the value found most often wins and the first one found decides a
+/// tie. Numbers that cannot be an amount (ids, UTRs) are skipped.
+double? _amountFromText(String t) {
+  final Map<double, int> counts = {};
+  final List<double> order = [];
+  for (final RegExpMatch m in _amountRe.allMatches(t)) {
+    final double? v = _plausibleMoney(m.group(1));
+    if (v == null) continue;
+    if (!counts.containsKey(v)) order.add(v);
+    counts[v] = (counts[v] ?? 0) + 1;
+  }
+  if (order.isEmpty) return null;
+  double best = order.first;
+  for (final double v in order) {
+    if (counts[v]! > counts[best]!) best = v;
+  }
+  return best;
+}
+
 ({int hour, int minute})? _time(String? h, String? m, String? ap) {
   if (h == null || m == null) return null;
   int hour = int.parse(h);
@@ -95,7 +139,7 @@ String _titleCase(String s) {
 }
 
 final RegExp _amountRe =
-    RegExp(r'(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)', caseSensitive: false);
+    RegExp(r'(?:₹|\b(?:Rs\.?|INR))\s*([\d,]+(?:\.\d{1,2})?)', caseSensitive: false);
 final RegExp _upiRe = RegExp(r'\b([\w.\-]{2,}@[a-z][a-z0-9]{1,})\b', caseSensitive: false);
 final RegExp _utrRe = RegExp(r'UTR\s*(?:No\.?|Number)?\s*[:\-]?\s*(\d{9,})', caseSensitive: false);
 final RegExp _accountRe = RegExp(
@@ -126,8 +170,8 @@ double? _amountFromLooseLines(List<String> lines) {
   for (int i = 0; i < lines.length; i++) {
     if (i > 0 && RegExp(r'^(message|phonepe transaction id|utr|bank reference|order id)', caseSensitive: false).hasMatch(lines[i - 1])) continue;
     final RegExpMatch? m = loose.firstMatch(lines[i]);
-    final double? v = _money(m?.group(1));
-    if (v != null && v > 0) counts[v] = (counts[v] ?? 0) + 1;
+    final double? v = _plausibleMoney(m?.group(1));
+    if (v != null) counts[v] = (counts[v] ?? 0) + 1;
   }
   if (counts.isEmpty) return null;
   double best = counts.keys.first;
@@ -159,7 +203,8 @@ PhonePeEntry? parsePhonePeScreenshotText(String text) {
   final List<String> lines =
       t.split('\n').map(_tidy).where((l) => l.isNotEmpty).toList();
 
-  double? amount = _money(_amountRe.firstMatch(t)?.group(1));
+  double? amount = _amountFromText(t);
+  final bool amountUnconfirmed = amount == null;
   amount ??= _amountFromLooseLines(lines);
   if (amount == null || amount <= 0) return null;
 
@@ -208,6 +253,7 @@ PhonePeEntry? parsePhonePeScreenshotText(String text) {
 
   return PhonePeEntry(
     amount: amount,
+    amountUnconfirmed: amountUnconfirmed,
     isExpense: !received,
     party: _titleCase(party),
     date: date,
@@ -308,7 +354,8 @@ PhonePeEntry? parseOtherUpiScreenshotText(String text) {
   final DateTime date = DateTime(day.year, day.month, day.day, tm?.hour ?? 0, tm?.minute ?? 0);
 
   final List<String> lines = t.split('\n').map(_tidy).where((l) => l.isNotEmpty).toList();
-  double? amount = _money(_amountRe.firstMatch(t)?.group(1));
+  double? amount = _amountFromText(t);
+  final bool amountUnconfirmed = amount == null;
   amount ??= _amountFromLooseLines(lines);
   if (amount == null || amount <= 0) return null;
 
@@ -318,6 +365,7 @@ PhonePeEntry? parseOtherUpiScreenshotText(String text) {
 
   return PhonePeEntry(
     amount: amount,
+    amountUnconfirmed: amountUnconfirmed,
     isExpense: !received,
     party: _titleCase(_partyOfOtherApp(lines)),
     date: date,
@@ -378,8 +426,8 @@ List<PhonePeEntry> parsePhonePeStatementText(String text) {
 
     final RegExpMatch? ty = _stmtTypeRe.firstMatch(block);
     // the rupee sign can come out as another character in a PDF: then take the number after DEBIT / CREDIT
-    final double? amount = _money(_amountRe.firstMatch(block)?.group(1)) ??
-        _money(RegExp(r'\b(?:DEBIT|CREDIT)\b\s*[^\d\s]?\s*([\d,]+(?:\.\d{1,2})?)').firstMatch(block)?.group(1));
+    final double? amount = _firstPlausibleAmount(block) ??
+        _plausibleMoney(RegExp(r'\b(?:DEBIT|CREDIT)\b\s*[^\d\s]?\s*([\d,]+(?:\.\d{1,2})?)').firstMatch(block)?.group(1));
     if (amount == null || amount <= 0) continue;
 
     final RegExpMatch? pm = _stmtPartyRe.firstMatch(block);
@@ -615,6 +663,7 @@ String _stableHash(String text) {
 
 String _noteOf(PhonePeEntry e) {
   final List<String> parts = [e.app];
+  if (e.amountUnconfirmed) parts.add('CHECK THE AMOUNT (no ₹ sign was read)');
   if (e.message.isNotEmpty) parts.add(e.message);
   if (e.utr.isNotEmpty) parts.add('UTR ${e.utr}');
   if (e.txnId.isNotEmpty) parts.add('Txn ${e.txnId}');
