@@ -203,4 +203,35 @@ UTR: 995940082093''')!;
       'the amount seen most often wins');
   check(chooseBestReading([reading(286), reading(280)])!.amount == 286, 'a tie goes to the earlier reading');
   check(chooseBestReading([null, reading(50)])!.amount == 50, 'a failed reading is skipped');
+
+  // ---- the rupee sign read as a 7 ("₹286" became "7286")
+  final misread = parseUpiScreenshotText('''Transaction Successful
+06:04 am on 06 Nov 2026
+Paid to
+Blinkit
+7286
+blinkit.payu@hdfcbank
+Transfer Details
+Message
+UPIIntent
+PhonePe Transaction ID
+T2611060604060808497253
+Debited from
+XXXX566372
+7286
+UTR: 995940082093
+Powered by''');
+  check(misread != null && misread.amount == 286 && misread.amountUnconfirmed,
+      'a rupee sign read as 7 is dropped: ${misread?.amount}');
+  final real = parseUpiScreenshotText('''Transaction Successful
+06:04 am on 06 Nov 2026
+Paid to
+Blinkit
+₹7,286
+blinkit.payu@hdfcbank
+Debited from
+XXXX566372
+₹7,286
+UTR: 995940082093''');
+  check(real != null && real.amount == 7286 && !real.amountUnconfirmed, 'a real 7,286 with a rupee sign stays');
 }

@@ -170,7 +170,14 @@ double? _amountFromLooseLines(List<String> lines) {
   for (int i = 0; i < lines.length; i++) {
     if (i > 0 && RegExp(r'^(message|phonepe transaction id|utr|bank reference|order id)', caseSensitive: false).hasMatch(lines[i - 1])) continue;
     final RegExpMatch? m = loose.firstMatch(lines[i]);
-    final double? v = _plausibleMoney(m?.group(1));
+    String? raw = m?.group(1);
+    // The rupee sign itself is often read as a "7" ("₹286" becomes "7286"). A real amount of a thousand or
+    // more is written with a comma ("₹7,286") or has decimals, so a bare run of four or more digits that
+    // starts with 7 and has no rupee sign is a rupee sign read as a 7: that first digit is dropped.
+    if (raw != null && raw.length >= 4 && raw.startsWith('7') && RegExp(r'^\d+$').hasMatch(raw)) {
+      raw = raw.substring(1);
+    }
+    final double? v = _plausibleMoney(raw);
     if (v != null) counts[v] = (counts[v] ?? 0) + 1;
   }
   if (counts.isEmpty) return null;
@@ -663,7 +670,7 @@ String _stableHash(String text) {
 
 String _noteOf(PhonePeEntry e) {
   final List<String> parts = [e.app];
-  if (e.amountUnconfirmed) parts.add('CHECK THE AMOUNT (no ₹ sign was read)');
+  if (e.amountUnconfirmed) parts.add('CHECK THE AMOUNT (no ₹ sign was read; a leading 7 is taken to be the ₹ sign)');
   if (e.message.isNotEmpty) parts.add(e.message);
   if (e.utr.isNotEmpty) parts.add('UTR ${e.utr}');
   if (e.txnId.isNotEmpty) parts.add('Txn ${e.txnId}');
