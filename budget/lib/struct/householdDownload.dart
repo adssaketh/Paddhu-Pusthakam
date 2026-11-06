@@ -551,8 +551,35 @@ String? _fallbackWalletPk(List<TransactionWallet> wallets) {
   return own.first.walletPk;
 }
 
+/// The currency of this person's selected own account. Other members' placeholder accounts take
+/// the same one, so their amounts are shown as they were entered and never converted.
+String? _ownCurrency(List<TransactionWallet> wallets) {
+  final List<TransactionWallet> own =
+      wallets.where((w) => !isPlaceholderWalletPk(w.walletPk)).toList();
+  if (own.isEmpty) return null;
+  final String selected = (appStateSettings["selectedWalletPk"] ?? "").toString();
+  for (final TransactionWallet w in own) {
+    if (w.walletPk == selected) return w.currency;
+  }
+  return own.first.currency;
+}
+
+Future<void> _alignPlaceholderCurrencies(List<TransactionWallet> wallets) async {
+  final String? currency = _ownCurrency(wallets);
+  for (final TransactionWallet w in wallets) {
+    if (!isPlaceholderWalletPk(w.walletPk) || w.currency == currency) continue;
+    await (database.update(database.wallets)
+          ..where((x) => x.walletPk.equals(w.walletPk)))
+        .write(WalletsCompanion(
+      currency: Value(currency),
+      dateTimeModified: Value(DateTime.now()),
+    ));
+  }
+}
+
 Future<void> _ensurePlaceholderWallets(
     Set<String> memberUids, List<TransactionWallet> wallets) async {
+  await _alignPlaceholderCurrencies(wallets);
   if (memberUids.isEmpty) return;
   final Set<String> existing = wallets.map((w) => w.walletPk).toSet();
   int nextOrder = wallets.isEmpty ? 0 : wallets.map((w) => w.order).reduce(max) + 1;
@@ -565,6 +592,7 @@ Future<void> _ensurePlaceholderWallets(
             name: _walletNameFor(uid),
             order: nextOrder++,
             ownerUid: Value(uid),
+            currency: Value(_ownCurrency(wallets)),
             dateTimeModified: Value(DateTime.now()),
           ),
           mode: InsertMode.insertOrIgnore,
