@@ -77,4 +77,10 @@ Future<void> saveHouseholdView(String view) async {
       view == kHouseholdViewMine ? kHouseholdViewMine : kHouseholdViewEveryone;
   if (householdView == clean) return;
   await updateSettings(kHouseholdViewKey, clean, updateGlobalState: true);
+  // The app-wide rebuild skips widgets that never change (the const toggle, lists that build their
+  // stream once), so the pages that list transactions are refreshed directly as well.
+  await updateSettings(kHouseholdViewKey, clean,
+      updateGlobalState: false,
+      setStateAllPageFrameworks: true,
+      pagesNeedingRefresh: const [0, 1, 2]);
 }
