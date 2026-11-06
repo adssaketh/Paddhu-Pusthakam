@@ -205,7 +205,7 @@ UTR: 995940082093''')!;
   check(chooseBestReading([null, reading(50)])!.amount == 50, 'a failed reading is skipped');
 
   // ---- the rupee sign read as a 7 ("₹286" became "7286")
-  final misread = parseUpiScreenshotText('''Transaction Successful
+  final sevenForRupee = parseUpiScreenshotText('''Transaction Successful
 06:04 am on 06 Nov 2026
 Paid to
 Blinkit
@@ -221,9 +221,9 @@ XXXX566372
 7286
 UTR: 995940082093
 Powered by''');
-  check(misread != null && misread.amount == 286 && misread.amountUnconfirmed,
-      'a rupee sign read as 7 is dropped: ${misread?.amount}');
-  final real = parseUpiScreenshotText('''Transaction Successful
+  check(sevenForRupee != null && sevenForRupee.amount == 286 && sevenForRupee.amountUnconfirmed,
+      'a rupee sign read as 7 is dropped: ${sevenForRupee?.amount}');
+  final realSeven = parseUpiScreenshotText('''Transaction Successful
 06:04 am on 06 Nov 2026
 Paid to
 Blinkit
@@ -233,5 +233,5 @@ Debited from
 XXXX566372
 ₹7,286
 UTR: 995940082093''');
-  check(real != null && real.amount == 7286 && !real.amountUnconfirmed, 'a real 7,286 with a rupee sign stays');
+  check(realSeven != null && realSeven.amount == 7286 && !realSeven.amountUnconfirmed, 'a real 7,286 with a rupee sign stays');
 }
