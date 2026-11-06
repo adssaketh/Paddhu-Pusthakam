@@ -164,6 +164,30 @@ T2611060604060808497253''') ==
       'when only an impossible amount is found, nothing is guessed');
   check(kMaxPlausiblePaymentAmount == 10000000, 'the limit for one payment');
 
+  // ---- the rupee sign read as a digit: the amount is flagged, not trusted
+  check(!normal.amountUnconfirmed, 'an amount with a rupee sign is confirmed');
+  final PhonePeEntry misread = parseUpiScreenshotText('''Transaction Successful
+06:04 am on 06 Nov 2026
+Paid to
+B
+Blinkit
+blinkit.payu@hdfcbank
+7286
+Transfer Details
+Message
+UPIIntent
+PhonePe Transaction ID
+T2611060604060808497253
+Debited from
+XXXX566372
+7286
+UTR: 995940082093''')!;
+  check(misread.amountUnconfirmed, 'an amount found without any rupee sign is flagged');
+  check(phonePeToRow(misread).note.contains('CHECK THE AMOUNT'), 'the note asks to check the amount');
+  check(!phonePeToRow(normal).note.contains('CHECK THE AMOUNT'), 'a confirmed amount has no such note');
+  final PhonePeEntry tPrefix = parseUpiScreenshotText(phonePe('T286').replaceAll('₹286', 'T286'))!;
+  check(tPrefix.amount == 286 && tPrefix.amountUnconfirmed, 'a "T" read for the rupee sign still gives 286, flagged');
+
   check(parseUpiScreenshotText('Payment failed\n₹50\nUPI\n1 Nov 2026 5:00 pm') == null, 'failed ignored');
   check(parseUpiScreenshotText('hello 12 Oct 2026') == null, 'random text ignored');
 }

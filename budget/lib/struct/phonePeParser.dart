@@ -25,10 +25,16 @@ class PhonePeEntry {
     this.message = '',
     this.accountDigits = '',
     this.app = 'PhonePe',
+    this.amountUnconfirmed = false,
   });
 
   /// Which app the payment was made with ('PhonePe', 'Paytm', 'Google Pay', 'BHIM', 'CRED', ...).
   final String app;
+
+  /// True when the amount was taken from a line of digits because no rupee sign (or Rs / INR) was found
+  /// in the picture. The rupee sign is easily read as another character, even as a digit (a "7"), and then
+  /// that digit would be part of the amount, so such an amount has to be checked.
+  final bool amountUnconfirmed;
 
   /// Always positive.
   final double amount;
@@ -198,6 +204,7 @@ PhonePeEntry? parsePhonePeScreenshotText(String text) {
       t.split('\n').map(_tidy).where((l) => l.isNotEmpty).toList();
 
   double? amount = _amountFromText(t);
+  final bool amountUnconfirmed = amount == null;
   amount ??= _amountFromLooseLines(lines);
   if (amount == null || amount <= 0) return null;
 
@@ -246,6 +253,7 @@ PhonePeEntry? parsePhonePeScreenshotText(String text) {
 
   return PhonePeEntry(
     amount: amount,
+    amountUnconfirmed: amountUnconfirmed,
     isExpense: !received,
     party: _titleCase(party),
     date: date,
@@ -347,6 +355,7 @@ PhonePeEntry? parseOtherUpiScreenshotText(String text) {
 
   final List<String> lines = t.split('\n').map(_tidy).where((l) => l.isNotEmpty).toList();
   double? amount = _amountFromText(t);
+  final bool amountUnconfirmed = amount == null;
   amount ??= _amountFromLooseLines(lines);
   if (amount == null || amount <= 0) return null;
 
@@ -356,6 +365,7 @@ PhonePeEntry? parseOtherUpiScreenshotText(String text) {
 
   return PhonePeEntry(
     amount: amount,
+    amountUnconfirmed: amountUnconfirmed,
     isExpense: !received,
     party: _titleCase(_partyOfOtherApp(lines)),
     date: date,
@@ -653,6 +663,7 @@ String _stableHash(String text) {
 
 String _noteOf(PhonePeEntry e) {
   final List<String> parts = [e.app];
+  if (e.amountUnconfirmed) parts.add('CHECK THE AMOUNT (no ₹ sign was read)');
   if (e.message.isNotEmpty) parts.add(e.message);
   if (e.utr.isNotEmpty) parts.add('UTR ${e.utr}');
   if (e.txnId.isNotEmpty) parts.add('Txn ${e.txnId}');
