@@ -95,6 +95,22 @@ Future<String> householdDiagnostics() async {
   out.writeln("  loans/deposits shared with me: ${await _serverCount(h.collection('sharedItems').where('visibleTo', arrayContains: uid2))}");
   out.writeln("  loans/deposits I shared: ${await _serverCount(h.collection('sharedItems').where('ownerUid', isEqualTo: uid2))}");
 
+  // The biggest rows here next to the same rows on the server: shows where a wrong amount comes from.
+  final List<Transaction> biggest = [...local]
+    ..sort((a, b) => b.amount.abs().compareTo(a.amount.abs()));
+  out.writeln("\nBiggest rows, here vs server:");
+  for (final Transaction t in biggest.take(4)) {
+    String serverAmount;
+    try {
+      final doc = await tx.doc(t.transactionPk).get(const GetOptions(source: Source.server));
+      serverAmount = doc.exists ? "${doc.data()?['amount']}" : "not there";
+    } catch (e) {
+      serverAmount = "unreadable";
+    }
+    final String who = t.ownerUid == uid2 ? 'mine' : (t.ownerUid == null || t.ownerUid == '') ? 'personal' : 'other';
+    out.writeln("  ${t.name} ($who) | here ${t.amount} | server $serverAmount | account ${t.walletFk.length > 8 ? t.walletFk.substring(0, 8) : t.walletFk}");
+  }
+
   out.writeln("\nDownload problems since the app started:");
   if (householdDownloadNotes.isEmpty) {
     out.writeln("  none");
