@@ -38,6 +38,7 @@ import 'dart:math';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
+import 'package:budget/struct/householdDiagnostics.dart';
 import 'package:budget/struct/householdMembers.dart';
 import 'package:budget/struct/householdMergeRules.dart';
 import 'package:budget/struct/householdService.dart';
@@ -120,6 +121,7 @@ void _enqueue(int generation, Future<void> Function() task) {
       await task();
     } catch (e) {
       print("Household download: ${e.toString()}");
+      noteHouseholdDownloadProblem("applying", e);
     }
   });
 }
@@ -127,6 +129,7 @@ void _enqueue(int generation, Future<void> Function() task) {
 Future<void> _handleError(int generation, Object error) async {
   if (generation != _generation) return;
   print("Household download: ${error.toString()}");
+  noteHouseholdDownloadProblem("listener", error);
   if (error is FirebaseException && error.code == 'permission-denied') {
     // Most likely this person was removed from the household.
     await refreshHouseholdState();
@@ -247,6 +250,7 @@ Future<void> _applyOwnSharedItems(int generation,
 void _handleSharedItemsError(int generation, Object error) {
   if (generation != _generation) return;
   print("Household download: shared items: ${error.toString()}");
+  noteHouseholdDownloadProblem("shared items", error);
 }
 
 // ---------------------------------------------------------------------------
@@ -447,6 +451,7 @@ Future<void> _applyTransactionChunk(
       remote = Transaction.fromJson(data);
     } catch (e) {
       print("Household download: skipped a transaction: ${e.toString()}");
+      noteHouseholdDownloadProblem("skipped a transaction", e);
       continue;
     }
 
