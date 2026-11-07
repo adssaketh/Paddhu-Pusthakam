@@ -417,6 +417,16 @@ Future<void> _applyTransactions(
     {required bool isPublicQuery}) async {
   final generation = _generation;
   final changes = snapshot.docChanges;
+  if (changes.isNotEmpty) {
+    int added = 0, modified = 0, removed = 0;
+    for (final c in changes) {
+      if (c.type == DocumentChangeType.added) added++;
+      if (c.type == DocumentChangeType.modified) modified++;
+      if (c.type == DocumentChangeType.removed) removed++;
+    }
+    noteHouseholdWrite(
+        "${isPublicQuery ? 'shared' : 'private'} snapshot ${snapshot.metadata.isFromCache ? '(cache)' : '(server)'}: +$added ~$modified -$removed");
+  }
   for (int start = 0; start < changes.length; start += _chunkSize) {
     if (generation != _generation) return; // stopped or left the household meanwhile
     final part = changes.sublist(start, min(start + _chunkSize, changes.length));
@@ -457,6 +467,10 @@ Future<void> _reconcileTransactions(String myUid, Set<String> serverIds) async {
     myUid: myUid,
     now: DateTime.now(),
   );
+  if (plan.deletePks.isNotEmpty || plan.reuploadPks.isNotEmpty) {
+    noteHouseholdWrite(
+        "reconcile: remove ${plan.deletePks.length} ghosts, re-upload ${plan.reuploadPks.length}");
+  }
   if (plan.deletePks.isNotEmpty) {
     for (int i = 0; i < plan.deletePks.length; i += _chunkSize) {
       final List<String> part =
@@ -630,6 +644,8 @@ Future<void> _applyTransactionChunk(
   await _ensurePlaceholderWallets(membersNeedingWallet, wallets);
 
   if (writes.isEmpty && removePks.isEmpty && ownRowUpdates.isEmpty) return;
+  noteHouseholdWrite(
+      "wrote ${writes.length} rows, updated ${ownRowUpdates.length} of mine, removed ${removePks.length}");
   await database.batch((b) {
     for (final TransactionsCompanion companion in writes) {
       b.insert(database.transactions, companion,

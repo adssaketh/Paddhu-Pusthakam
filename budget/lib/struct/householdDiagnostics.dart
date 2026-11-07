@@ -21,6 +21,17 @@ void noteHouseholdDownloadProblem(String where, Object error) {
   if (householdDownloadNotes.length > 8) householdDownloadNotes.removeAt(0);
 }
 
+/// What the sync changed on this phone recently (newest last), so a number that keeps moving can be traced
+/// to the thing that keeps changing it.
+final List<String> householdWriteNotes = [];
+
+void noteHouseholdWrite(String what) {
+  final DateTime n = DateTime.now();
+  String two(int v) => v.toString().padLeft(2, '0');
+  householdWriteNotes.add("${two(n.hour)}:${two(n.minute)}:${two(n.second)} $what");
+  if (householdWriteNotes.length > 14) householdWriteNotes.removeAt(0);
+}
+
 Future<String> _serverCount(Query<Map<String, dynamic>> query) async {
   try {
     final QuerySnapshot<Map<String, dynamic>> snapshot = await query
@@ -145,6 +156,15 @@ Future<String> householdDiagnostics() async {
     }
     final String who = t.ownerUid == uid2 ? 'mine' : (t.ownerUid == null || t.ownerUid == '') ? 'personal' : 'other';
     out.writeln("  ${t.name} ($who) | here ${t.amount} | server $serverAmount | account ${t.walletFk.length > 8 ? t.walletFk.substring(0, 8) : t.walletFk}");
+  }
+
+  out.writeln("\nRecent changes made by sync (time, what):");
+  if (householdWriteNotes.isEmpty) {
+    out.writeln("  none");
+  } else {
+    for (final String note in householdWriteNotes) {
+      out.writeln("  $note");
+    }
   }
 
   out.writeln("\nDownload problems since the app started:");
