@@ -11,7 +11,7 @@ import 'dart:ui' as ui;
 import 'package:budget/struct/phonePeParser.dart';
 import 'package:budget/struct/pingImport.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' hide TextLine;
 
 /// Thrown for a PDF that needs a password (or whose password was wrong).
 class PdfPasswordNeeded implements Exception {
