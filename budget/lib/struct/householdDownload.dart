@@ -71,6 +71,7 @@ int _generation = 0; // listeners and queued work from an older start are ignore
 Future<void> _queue = Future.value();
 Map<String, String> _memberNames = {};
 // Ids of the last full (server) snapshot of each transaction query; the reconcile step needs both.
+String _lastReconcileSummary = "";
 Set<String>? _publicIds;
 Set<String>? _privateIds;
 
@@ -196,7 +197,10 @@ Future<void> _start(int generation) async {
   final Query<Map<String, dynamic>> transactions =
       household.collection('transactions');
   _subscriptions.add(
-      transactions.where('isPrivate', isEqualTo: false).snapshots().listen(
+      transactions
+          .where('isPrivate', isEqualTo: false)
+          .snapshots(includeMetadataChanges: true)
+          .listen(
             (snapshot) => _enqueue(generation,
                 () => _applyTransactions(snapshot, uid, isPublicQuery: true)),
             onError: (Object e) => _handleError(generation, e),
@@ -204,7 +208,7 @@ Future<void> _start(int generation) async {
   _subscriptions.add(transactions
       .where('ownerId', isEqualTo: uid)
       .where('isPrivate', isEqualTo: true)
-      .snapshots()
+      .snapshots(includeMetadataChanges: true)
       .listen(
         (snapshot) => _enqueue(generation,
             () => _applyTransactions(snapshot, uid, isPublicQuery: false)),
@@ -467,8 +471,12 @@ Future<void> _reconcileTransactions(String myUid, Set<String> serverIds) async {
     myUid: myUid,
     now: DateTime.now(),
   );
-  noteHouseholdWrite(
-      "reconcile: server has ${serverIds.length}; remove ${plan.deletePks.length} ghosts, re-upload ${plan.reuploadPks.length}, drop ${plan.undeletePks.length} stale delete records");
+  final String summary =
+      "reconcile: server has ${serverIds.length}; remove ${plan.deletePks.length} ghosts, re-upload ${plan.reuploadPks.length}, drop ${plan.undeletePks.length} stale delete records";
+  if (summary != _lastReconcileSummary) {
+    _lastReconcileSummary = summary; // the same result again and again is not repeated in the trace
+    noteHouseholdWrite(summary);
+  }
   if (plan.undeletePks.isNotEmpty) {
     for (int i = 0; i < plan.undeletePks.length; i += _chunkSize) {
       final List<String> part =
