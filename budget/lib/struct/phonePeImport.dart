@@ -27,31 +27,42 @@ Future<String> readTextFromImage(String path) async {
   }
 }
 
-/// A copy of the picture with the colours inverted (light text on a dark screen becomes dark text on a
-/// light one), which the text reader handles better. null when it could not be made.
-Future<String?> _invertedCopy(String path) async {
+/// A prepared copy of the picture for the text reader: enlarged to about 1600 pixels wide (small text is
+/// read better when it is bigger), turned to grey and given more contrast. With [invert] the light-on-dark
+/// screens of PhonePe and others become dark text on a light page, which the reader handles better.
+/// null when it could not be made.
+Future<String?> _preparedCopy(String path, {required bool invert}) async {
   try {
     final ui.Codec codec = await ui.instantiateImageCodec(await File(path).readAsBytes());
     final ui.Image image = (await codec.getNextFrame()).image;
+    final double scale = image.width >= 1600 ? 1.0 : (1600 / image.width).clamp(1.0, 3.0).toDouble();
+    final int width = (image.width * scale).round();
+    final int height = (image.height * scale).round();
+    const double c = 1.6; // contrast around mid grey
+    final double sign = invert ? -c : c;
+    final double offset = invert ? 127 * c + 128 : 128 * (1 - c);
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final ui.Canvas canvas = ui.Canvas(recorder);
+    canvas.scale(scale);
     canvas.drawImage(
       image,
       ui.Offset.zero,
       ui.Paint()
-        ..colorFilter = const ui.ColorFilter.matrix(<double>[
-          -1, 0, 0, 0, 255, //
-          0, -1, 0, 0, 255,
-          0, 0, -1, 0, 255,
+        ..filterQuality = ui.FilterQuality.high
+        ..colorFilter = ui.ColorFilter.matrix(<double>[
+          sign * 0.299, sign * 0.587, sign * 0.114, 0, offset, //
+          sign * 0.299, sign * 0.587, sign * 0.114, 0, offset,
+          sign * 0.299, sign * 0.587, sign * 0.114, 0, offset,
           0, 0, 0, 1, 0,
         ]),
     );
-    final ui.Image inverted = await recorder.endRecording().toImage(image.width, image.height);
-    final ByteData? data = await inverted.toByteData(format: ui.ImageByteFormat.png);
+    final ui.Image out = await recorder.endRecording().toImage(width, height);
+    final ByteData? data = await out.toByteData(format: ui.ImageByteFormat.png);
     if (data == null) return null;
-    final File out = File('${Directory.systemTemp.path}/phonepe-inverted.png');
-    await out.writeAsBytes(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), flush: true);
-    return out.path;
+    final File file =
+        File('${Directory.systemTemp.path}/upi-prepared-${invert ? 'inverted' : 'plain'}.png');
+    await file.writeAsBytes(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), flush: true);
+    return file.path;
   } catch (e) {
     return null;
   }
@@ -60,27 +71,31 @@ Future<String?> _invertedCopy(String path) async {
 /// One payment from a screenshot of a UPI app's payment-success page (PhonePe, Paytm, Google Pay, BHIM, CRED, MobiKwik, ...).
 Future<PingImport> buildImportFromScreenshot(String imagePath) async {
   final String text = await readTextFromImage(imagePath);
-  PhonePeEntry? entry = parseUpiScreenshotText(text);
-  if (entry == null || entry.amountUnconfirmed) {
+  final List<PhonePeEntry?> readings = [parseUpiScreenshotText(text)];
+  if (readings.first == null || readings.first!.amountUnconfirmed) {
     // The rupee sign is the hardest character to read: it can come out as a "7" or a "T", most of all on a
-    // dark screen, and then the amount is wrong. A second reading of the inverted picture often gets it
-    // right. A reading with a rupee sign in front of the amount is preferred; otherwise the first stays.
-    final String? inverted = await _invertedCopy(imagePath);
-    if (inverted != null) {
+    // dark screen, and then the amount is wrong. So the picture is read again in prepared copies (enlarged,
+    // grey, more contrast; then the same inverted) until a reading shows a rupee sign in front of the amount.
+    // chooseBestReading takes the best of all the readings.
+    for (final bool invert in const [false, true]) {
+      final String? copy = await _preparedCopy(imagePath, invert: invert);
+      if (copy == null) continue;
       try {
-        final PhonePeEntry? second = parseUpiScreenshotText(await readTextFromImage(inverted));
-        if (second != null && (entry == null || !second.amountUnconfirmed)) entry = second;
+        readings.add(parseUpiScreenshotText(await readTextFromImage(copy)));
       } catch (e) {
-        // keep the first reading
+        // keep what has been read so far
       } finally {
         try {
-          await File(inverted).delete();
+          await File(copy).delete();
         } catch (e) {
           // a leftover cache file does no harm
         }
       }
+      final PhonePeEntry? last = readings.last;
+      if (last != null && !last.amountUnconfirmed) break;
     }
   }
+  final PhonePeEntry? entry = chooseBestReading(readings);
   if (entry == null) {
     throw const FormatException(
         'Could not read a payment from this picture. Open the payment in your UPI app so the success page, with the amount, date, name and details, is fully visible, and take the screenshot again.');

@@ -190,4 +190,67 @@ UTR: 995940082093''')!;
 
   check(parseUpiScreenshotText('Payment failed\n₹50\nUPI\n1 Nov 2026 5:00 pm') == null, 'failed ignored');
   check(parseUpiScreenshotText('hello 12 Oct 2026') == null, 'random text ignored');
+
+  // ---- the best of several readings of one picture
+  PhonePeEntry reading(double amount, {bool unconfirmed = false}) => PhonePeEntry(
+      amount: amount, isExpense: true, party: 'x', date: DateTime(2026, 1, 1), amountUnconfirmed: unconfirmed);
+  check(chooseBestReading([]) == null && chooseBestReading([null, null]) == null, 'no readings, no result');
+  check(chooseBestReading([reading(7286, unconfirmed: true), reading(286)])!.amount == 286,
+      'a reading with a rupee sign beats one without');
+  check(chooseBestReading([reading(7286, unconfirmed: true)])!.amount == 7286,
+      'with nothing better the only reading stays');
+  check(chooseBestReading([reading(286), reading(280), reading(280)])!.amount == 280,
+      'the amount seen most often wins');
+  check(chooseBestReading([reading(286), reading(280)])!.amount == 286, 'a tie goes to the earlier reading');
+  check(chooseBestReading([null, reading(50)])!.amount == 50, 'a failed reading is skipped');
+
+  // ---- the rupee sign read as a 7 ("₹286" became "7286")
+  final sevenForRupee = parseUpiScreenshotText('''Transaction Successful
+06:04 am on 06 Nov 2026
+Paid to
+Blinkit
+7286
+blinkit.payu@hdfcbank
+Transfer Details
+Message
+UPIIntent
+PhonePe Transaction ID
+T2611060604060808497253
+Debited from
+XXXX566372
+7286
+UTR: 995940082093
+Powered by''');
+  check(sevenForRupee != null && sevenForRupee.amount == 286 && sevenForRupee.amountUnconfirmed,
+      'a rupee sign read as 7 is dropped: ${sevenForRupee?.amount}');
+  final realSeven = parseUpiScreenshotText('''Transaction Successful
+06:04 am on 06 Nov 2026
+Paid to
+Blinkit
+₹7,286
+blinkit.payu@hdfcbank
+Debited from
+XXXX566372
+₹7,286
+UTR: 995940082093''');
+  check(realSeven != null && realSeven.amount == 7286 && !realSeven.amountUnconfirmed, 'a real 7,286 with a rupee sign stays');
+
+  final sevenWithDecimals = parseUpiScreenshotText('''Transaction Successful
+05:21 pm on 31 Oct 2026
+Paid to
+JAGDISH KUMAR
+7392.19
+paytm.s274ml4@pty
+Transfer Details
+Message
+Verified Paytm Merchant
+PhonePe Transaction ID
+T2610311721290337063793
+Debited from
+XXXX566372
+7392.19
+UTR: 810016014305
+Powered by''');
+  check(sevenWithDecimals != null && sevenWithDecimals.amount == 392.19 && sevenWithDecimals.amountUnconfirmed,
+      'a rupee sign read as 7 before an amount with decimals is dropped: ${sevenWithDecimals?.amount}');
 }
