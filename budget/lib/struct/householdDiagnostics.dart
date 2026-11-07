@@ -95,6 +95,42 @@ Future<String> householdDiagnostics() async {
   out.writeln("  loans/deposits shared with me: ${await _serverCount(h.collection('sharedItems').where('visibleTo', arrayContains: uid2))}");
   out.writeln("  loans/deposits I shared: ${await _serverCount(h.collection('sharedItems').where('ownerUid', isEqualTo: uid2))}");
 
+  // Per person: how many rows the server has and how many this phone has. They must be equal.
+  try {
+    final QuerySnapshot<Map<String, dynamic>> shared = await tx
+        .where('isPrivate', isEqualTo: false)
+        .get(const GetOptions(source: Source.server))
+        .timeout(const Duration(seconds: 20));
+    final Map<String, int> serverBy = {};
+    for (final d in shared.docs) {
+      final String o = (d.data()['ownerId'] ?? '?').toString();
+      serverBy[o] = (serverBy[o] ?? 0) + 1;
+    }
+    final Set<String> serverIds = shared.docs.map((d) => d.id).toSet();
+    final Map<String, int> localBy = {};
+    int ghosts = 0, notUp = 0;
+    for (final Transaction t in local) {
+      final String? o = t.ownerUid;
+      if (o == null || o == '') continue;
+      localBy[o] = (localBy[o] ?? 0) + 1;
+      if (!serverIds.contains(t.transactionPk)) {
+        if (o == uid2) {
+          if (!t.isPrivate) notUp++;
+        } else {
+          ghosts++;
+        }
+      }
+    }
+    out.writeln("\nPer person (server | this phone):");
+    for (final String o in {...serverBy.keys, ...localBy.keys}) {
+      final String who = o == uid2 ? 'me' : (o.length > 6 ? o.substring(0, 6) : o);
+      out.writeln("  $who: ${serverBy[o] ?? 0} | ${localBy[o] ?? 0}");
+    }
+    out.writeln("Rows here that the server does not have: mine $notUp (will upload), others' $ghosts (will be removed)");
+  } catch (e) {
+    out.writeln("\nPer person: unreadable (${e is FirebaseException ? e.code : e.toString()})");
+  }
+
   // The biggest rows here next to the same rows on the server: shows where a wrong amount comes from.
   final List<Transaction> biggest = [...local]
     ..sort((a, b) => b.amount.abs().compareTo(a.amount.abs()));

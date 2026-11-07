@@ -70,6 +70,9 @@ Timer? _retryTimer;
 int _generation = 0; // listeners and queued work from an older start are ignored
 Future<void> _queue = Future.value();
 Map<String, String> _memberNames = {};
+// Ids of the last full (server) snapshot of each transaction query; the reconcile step needs both.
+Set<String>? _publicIds;
+Set<String>? _privateIds;
 
 /// Starts listening. Safe to call again whenever the household state changes.
 void startHouseholdDownload() {
@@ -96,6 +99,8 @@ void stopHouseholdDownload() {
 
 void _stopListening() {
   _generation++;
+  _publicIds = null;
+  _privateIds = null;
   for (final StreamSubscription subscription in _subscriptions) {
     subscription.cancel();
   }
@@ -192,8 +197,8 @@ Future<void> _start(int generation) async {
       household.collection('transactions');
   _subscriptions.add(
       transactions.where('isPrivate', isEqualTo: false).snapshots().listen(
-            (snapshot) =>
-                _enqueue(generation, () => _applyTransactions(snapshot, uid)),
+            (snapshot) => _enqueue(generation,
+                () => _applyTransactions(snapshot, uid, isPublicQuery: true)),
             onError: (Object e) => _handleError(generation, e),
           ));
   _subscriptions.add(transactions
@@ -201,8 +206,8 @@ Future<void> _start(int generation) async {
       .where('isPrivate', isEqualTo: true)
       .snapshots()
       .listen(
-        (snapshot) =>
-            _enqueue(generation, () => _applyTransactions(snapshot, uid)),
+        (snapshot) => _enqueue(generation,
+            () => _applyTransactions(snapshot, uid, isPublicQuery: false)),
         onError: (Object e) => _handleError(generation, e),
       ));
 
@@ -393,13 +398,83 @@ bool _sameCategoryContent(TransactionCategory a, TransactionCategory b) =>
 // transactions
 
 Future<void> _applyTransactions(
-    QuerySnapshot<Map<String, dynamic>> snapshot, String myUid) async {
+    QuerySnapshot<Map<String, dynamic>> snapshot, String myUid,
+    {required bool isPublicQuery}) async {
   final generation = _generation;
   final changes = snapshot.docChanges;
   for (int start = 0; start < changes.length; start += _chunkSize) {
     if (generation != _generation) return; // stopped or left the household meanwhile
     await _applyTransactionChunk(
         changes.sublist(start, min(start + _chunkSize, changes.length)), myUid);
+  }
+  if (generation != _generation) return;
+  // Only a snapshot that came from the server says what is really there.
+  if (snapshot.metadata.isFromCache) return;
+  final Set<String> ids = snapshot.docs.map((d) => d.id).toSet();
+  if (isPublicQuery) {
+    _publicIds = ids;
+  } else {
+    _privateIds = ids;
+  }
+  final Set<String>? a = _publicIds;
+  final Set<String>? b = _privateIds;
+  if (a == null || b == null) return;
+  await _reconcileTransactions(myUid, {...a, ...b});
+}
+
+/// Compares everything this phone holds with what the server returned and corrects both sides:
+/// other members' rows that are gone from the server are removed here, my own rows that are missing
+/// on the server are uploaded again, and my own rows sitting in another member's placeholder account
+/// are moved to my account. See householdMergeRules.dart for the rules.
+Future<void> _reconcileTransactions(String myUid, Set<String> serverIds) async {
+  final List<Transaction> all = await database.select(database.transactions).get();
+  final Set<String> deletedHere = (await (database.select(database.deleteLogs)
+            ..where((l) => l.type.equalsValue(DeleteLogType.Transaction)))
+          .get())
+      .map((l) => l.entryPk)
+      .toSet();
+  final HouseholdReconcilePlan plan = householdReconcilePlan(
+    local: all
+        .map((t) => HouseholdLocalRow(t.transactionPk, t.ownerUid, t.householdSyncedAt))
+        .toList(),
+    serverIds: serverIds,
+    deletedHere: deletedHere,
+    myUid: myUid,
+    now: DateTime.now(),
+  );
+  if (plan.deletePks.isNotEmpty) {
+    for (int i = 0; i < plan.deletePks.length; i += _chunkSize) {
+      final List<String> part =
+          plan.deletePks.sublist(i, min(i + _chunkSize, plan.deletePks.length));
+      await (database.delete(database.transactions)
+            ..where((t) => t.transactionPk.isIn(part)))
+          .go();
+    }
+    noteHouseholdDownloadProblem(
+        "reconcile", "removed ${plan.deletePks.length} rows that are no longer on the server");
+  }
+  if (plan.reuploadPks.isNotEmpty) {
+    for (int i = 0; i < plan.reuploadPks.length; i += _chunkSize) {
+      final List<String> part =
+          plan.reuploadPks.sublist(i, min(i + _chunkSize, plan.reuploadPks.length));
+      await (database.update(database.transactions)
+            ..where((t) => t.transactionPk.isIn(part)))
+          .write(const TransactionsCompanion(householdSyncedAt: Value(null)));
+    }
+    noteHouseholdDownloadProblem(
+        "reconcile", "uploading ${plan.reuploadPks.length} of my rows again (missing on the server)");
+    requestHouseholdSync();
+  }
+
+  // My own rows must never sit in somebody else's placeholder account.
+  final List<TransactionWallet> wallets = await database.select(database.wallets).get();
+  final String? fallback = _fallbackWalletPk(wallets);
+  if (fallback != null) {
+    await (database.update(database.transactions)
+          ..where((t) =>
+              t.ownerUid.equals(myUid) &
+              t.walletFk.like('$kPlaceholderWalletPrefix%')))
+        .write(TransactionsCompanion(walletFk: Value(fallback)));
   }
 }
 
@@ -472,6 +547,20 @@ Future<void> _applyTransactionChunk(
       }
       // I edited it on another phone and that edit is newer than mine: take it. An edit made
       // here that is newer (or the same) is kept and goes out with the next upload.
+      if (householdIsForeignOwner(mine.ownerUid, myUid)) {
+        // The server says this row is mine, but it sits here as somebody else's: the server decides.
+        final String? walletFk = walletPks.contains(remote.walletFk) &&
+                !isPlaceholderWalletPk(remote.walletFk)
+            ? remote.walletFk
+            : fallbackWalletPk;
+        if (walletFk == null) continue;
+        writes.add(remote.toCompanion(false).copyWith(
+              ownerUid: Value(myUid),
+              walletFk: Value(walletFk),
+              householdSyncedAt: Value(remote.dateTimeModified),
+            ));
+        continue;
+      }
       if (!householdOwnerIsMe(mine.ownerUid, myUid)) continue;
       if (!householdRemoteIsNewer(remote.dateTimeModified, mine.dateTimeModified)) {
         continue;
@@ -503,13 +592,11 @@ Future<void> _applyTransactionChunk(
 
     // Somebody else's transaction.
     if (data['isPrivate'] != false) continue; // the rules do not allow this; be safe anyway
-    // The same transaction already sits here as if it were mine, and it was never uploaded
-    // (for example this phone started from a copy of their data). It is theirs: their copy replaces it.
-    final bool copyOfTheirs = mine != null &&
-        mine.householdSyncedAt == null &&
-        (mine.ownerUid == null || mine.ownerUid == myUid);
-    if (mine != null && !copyOfTheirs) {
-      if (mine.ownerUid != ownerId) continue; // never touch a row that is not theirs
+    // The server decides who owns a row: if it sits here under another owner (or as a copy that was
+    // never uploaded), their document replaces it. Otherwise only a newer edit of theirs is taken.
+    if (mine != null &&
+        !householdServerOwnerWins(
+            localOwnerUid: mine.ownerUid, serverOwnerId: ownerId)) {
       if (!householdRemoteIsNewer(remote.dateTimeModified, mine.dateTimeModified)) {
         continue;
       }

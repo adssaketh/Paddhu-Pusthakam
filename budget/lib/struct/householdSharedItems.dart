@@ -603,6 +603,20 @@ Future<bool> applyOwnSharedItemsSnapshot(
     bool uploadedChanged = false;
     bool needsSync = false;
 
+    // A full server answer that lacks something this person shares and thinks was sent: it was
+    // lost on the server, so it counts as not sent and the next sync puts it back.
+    if (!snapshot.metadata.isFromCache) {
+      final Set<String> onServer = snapshot.docs.map((d) => d.id).toSet();
+      for (final String docId in List<String>.of(uploaded.keys)) {
+        final dynamic choice = own[docId];
+        if (choice == null || isDeletedItem(choice)) continue;
+        if (onServer.contains(docId)) continue;
+        uploaded.remove(docId);
+        uploadedChanged = true;
+        needsSync = true;
+      }
+    }
+
     for (final DocumentChange<Map<String, dynamic>> change
         in snapshot.docChanges) {
       if (change.type == DocumentChangeType.removed) continue;
