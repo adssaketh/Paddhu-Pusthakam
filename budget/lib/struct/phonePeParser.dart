@@ -54,7 +54,25 @@ class PhonePeEntry {
 
   /// Digits of the account that was debited / credited, as far as they are shown ("566372").
   final String accountDigits;
+
+  /// The same payment with an amount that was read with a rupee sign in front of it (so it is trusted).
+  PhonePeEntry withConfirmedAmount(double newAmount) => PhonePeEntry(
+        amount: newAmount,
+        isExpense: isExpense,
+        party: party,
+        date: date,
+        txnId: txnId,
+        utr: utr,
+        upiId: upiId,
+        message: message,
+        accountDigits: accountDigits,
+        app: app,
+        amountUnconfirmed: false,
+      );
 }
+
+/// The amount in a piece of text that has a rupee sign (or Rs / INR) in front of it, or null.
+double? amountWithRupeeSign(String text) => _amountFromText(text);
 
 // ---------------------------------------------------------------------------------------------
 // Shared helpers

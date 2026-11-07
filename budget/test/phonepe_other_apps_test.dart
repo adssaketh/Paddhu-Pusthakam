@@ -276,4 +276,13 @@ UTR: 810016014305''');
   check(agree != null && !agree.amountUnconfirmed && agree.amount == 392.19, 'the same amount twice is trusted');
   check(!phonePeToRow(sevenWithDecimals!).tickByDefault, 'a doubtful amount is not ticked by default');
   check(phonePeToRow(agree!).tickByDefault, 'a trusted amount is ticked by default');
+
+  // ---- an amount read again by zooming into it replaces a doubtful one
+  final zoomedIn = sevenWithDecimals!.withConfirmedAmount(392.19);
+  check(zoomedIn.amount == 392.19 && !zoomedIn.amountUnconfirmed && zoomedIn.party == sevenWithDecimals.party &&
+      zoomedIn.utr == sevenWithDecimals.utr, 'a confirmed amount keeps the rest of the payment');
+  check(amountWithRupeeSign('₹286') == 286 && amountWithRupeeSign('kit ₹392.19') == 392.19,
+      'a zoomed reading with a rupee sign gives the amount');
+  check(amountWithRupeeSign('7286') == null && amountWithRupeeSign('') == null,
+      'a zoomed reading without a rupee sign is not trusted');
 }
