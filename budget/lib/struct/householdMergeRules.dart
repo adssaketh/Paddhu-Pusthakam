@@ -35,7 +35,12 @@ class HouseholdReconcilePlan {
 
   /// My own rows that are missing on the server (and were not deleted here): upload them again.
   final List<String> reuploadPks;
-  const HouseholdReconcilePlan(this.deletePks, this.reuploadPks);
+
+  /// My own rows that exist here, are missing on the server and carry an old "deleted" record: the
+  /// row is still on this phone and in use, so the record is stale. The record is dropped and the row goes up again.
+  final List<String> undeletePks;
+  const HouseholdReconcilePlan(this.deletePks, this.reuploadPks,
+      [this.undeletePks = const []]);
 }
 
 /// [serverIds] is everything this person can read on the server (shared rows plus own private
@@ -51,18 +56,21 @@ HouseholdReconcilePlan householdReconcilePlan({
 }) {
   final List<String> deletePks = [];
   final List<String> reuploadPks = [];
+  final List<String> undeletePks = [];
   for (final HouseholdLocalRow row in local) {
     if (serverIds.contains(row.pk)) continue;
     if (householdIsForeignOwner(row.ownerUid, myUid)) {
       deletePks.add(row.pk);
-    } else if (row.ownerUid == myUid &&
-        row.syncedAt != null &&
-        !deletedHere.contains(row.pk) &&
-        now.difference(row.syncedAt!) > grace) {
-      reuploadPks.add(row.pk);
+    } else if (row.ownerUid == myUid) {
+      if (deletedHere.contains(row.pk)) {
+        undeletePks.add(row.pk);
+        if (row.syncedAt != null) reuploadPks.add(row.pk);
+      } else if (row.syncedAt != null && now.difference(row.syncedAt!) > grace) {
+        reuploadPks.add(row.pk);
+      }
     }
   }
-  return HouseholdReconcilePlan(deletePks, reuploadPks);
+  return HouseholdReconcilePlan(deletePks, reuploadPks, undeletePks);
 }
 
 /// Who owns a row after a server document arrives: the server always decides.

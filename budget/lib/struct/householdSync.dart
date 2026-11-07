@@ -436,7 +436,9 @@ Future<void> _uploadDeletions(FirebaseFirestore db, String hid) async {
   final List<DeleteLog> logs = await (database.select(database.deleteLogs)
         ..where((l) =>
             l.type.equalsValue(DeleteLogType.Transaction) &
-            l.dateTimeModified.isBiggerOrEqualValue(
+            // Strictly newer: each deletion goes out once. (With "or equal" the last one was sent again
+            // on every sync, which could flap a document in and out for the other members.)
+            l.dateTimeModified.isBiggerThanValue(
                 DateTime.fromMillisecondsSinceEpoch(cursor)))
         ..orderBy([(l) => OrderingTerm.asc(l.dateTimeModified)]))
       .get();
@@ -445,10 +447,18 @@ Future<void> _uploadDeletions(FirebaseFirestore db, String hid) async {
   int newCursor = cursor;
   for (final DeleteLog log in logs) {
     try {
-      await db
-          .doc('households/$hid/transactions/${log.entryPk}')
-          .delete()
+      final DocumentReference<Map<String, dynamic>> ref =
+          db.doc('households/$hid/transactions/${log.entryPk}');
+      // Only my own documents are deleted. Asking first matters: a delete the rules refuse would
+      // still show on this phone for a moment (as the document vanishing and coming back).
+      final DocumentSnapshot<Map<String, dynamic>> existing = await ref
+          .get(const GetOptions(source: Source.server))
           .timeout(_serverTimeout);
+      if (existing.exists &&
+          (existing.data()?['ownerId'] ?? '').toString() ==
+              currentHouseholdUserUid) {
+        await ref.delete().timeout(_serverTimeout);
+      }
     } on FirebaseException catch (e) {
       // Not uploaded before, or not allowed to delete it: nothing to do.
       if (e.code != 'permission-denied' && e.code != 'not-found') rethrow;

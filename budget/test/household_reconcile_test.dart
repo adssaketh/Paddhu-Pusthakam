@@ -35,7 +35,8 @@ void main() {
     now: now,
   );
   check("row uploaded seconds ago is left alone", !plan.reuploadPks.contains("justUp"));
-  check("row deleted here is not resurrected", !plan.reuploadPks.contains("gone"));
+  check("row that still exists here loses its stale delete record and goes up again",
+      plan.undeletePks.contains("gone") && plan.reuploadPks.contains("gone"));
 
   plan = householdReconcilePlan(
     local: [

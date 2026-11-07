@@ -467,9 +467,22 @@ Future<void> _reconcileTransactions(String myUid, Set<String> serverIds) async {
     myUid: myUid,
     now: DateTime.now(),
   );
-  if (plan.deletePks.isNotEmpty || plan.reuploadPks.isNotEmpty) {
-    noteHouseholdWrite(
-        "reconcile: remove ${plan.deletePks.length} ghosts, re-upload ${plan.reuploadPks.length}");
+  noteHouseholdWrite(
+      "reconcile: server has ${serverIds.length}; remove ${plan.deletePks.length} ghosts, re-upload ${plan.reuploadPks.length}, drop ${plan.undeletePks.length} stale delete records");
+  if (plan.undeletePks.isNotEmpty) {
+    for (int i = 0; i < plan.undeletePks.length; i += _chunkSize) {
+      final List<String> part =
+          plan.undeletePks.sublist(i, min(i + _chunkSize, plan.undeletePks.length));
+      await (database.delete(database.deleteLogs)
+            ..where((l) =>
+                l.type.equalsValue(DeleteLogType.Transaction) &
+                l.entryPk.isIn(part)))
+          .go();
+      await (database.update(database.transactions)
+            ..where((t) => t.transactionPk.isIn(part)))
+          .write(const TransactionsCompanion(householdSyncedAt: Value(null)));
+    }
+    requestHouseholdSync();
   }
   if (plan.deletePks.isNotEmpty) {
     for (int i = 0; i < plan.deletePks.length; i += _chunkSize) {
