@@ -54,7 +54,25 @@ class PhonePeEntry {
 
   /// Digits of the account that was debited / credited, as far as they are shown ("566372").
   final String accountDigits;
+
+  /// The same payment with an amount that was read with a rupee sign in front of it (so it is trusted).
+  PhonePeEntry withConfirmedAmount(double newAmount) => PhonePeEntry(
+        amount: newAmount,
+        isExpense: isExpense,
+        party: party,
+        date: date,
+        txnId: txnId,
+        utr: utr,
+        upiId: upiId,
+        message: message,
+        accountDigits: accountDigits,
+        app: app,
+        amountUnconfirmed: false,
+      );
 }
+
+/// The amount in a piece of text that has a rupee sign (or Rs / INR) in front of it, or null.
+double? amountWithRupeeSign(String text) => _amountFromText(text);
 
 // ---------------------------------------------------------------------------------------------
 // Shared helpers
@@ -110,6 +128,18 @@ double? _amountFromText(String t) {
     if (counts[v]! > counts[best]!) best = v;
   }
   return best;
+}
+
+/// True when the amounts written with a rupee sign do not agree: more than one different value and none of
+/// them seen at least twice (the amount is normally shown twice on a payment page). Then no reading can be
+/// trusted, so the amount has to be checked by the person.
+bool _amountsDisagree(String t) {
+  final Map<double, int> counts = {};
+  for (final RegExpMatch m in _amountRe.allMatches(t)) {
+    final double? v = _plausibleMoney(m.group(1));
+    if (v != null) counts[v] = (counts[v] ?? 0) + 1;
+  }
+  return counts.length > 1 && counts.values.every((c) => c < 2);
 }
 
 ({int hour, int minute})? _time(String? h, String? m, String? ap) {
@@ -211,7 +241,7 @@ PhonePeEntry? parsePhonePeScreenshotText(String text) {
       t.split('\n').map(_tidy).where((l) => l.isNotEmpty).toList();
 
   double? amount = _amountFromText(t);
-  final bool amountUnconfirmed = amount == null;
+  final bool amountUnconfirmed = amount == null || _amountsDisagree(t);
   amount ??= _amountFromLooseLines(lines);
   if (amount == null || amount <= 0) return null;
 
@@ -362,7 +392,7 @@ PhonePeEntry? parseOtherUpiScreenshotText(String text) {
 
   final List<String> lines = t.split('\n').map(_tidy).where((l) => l.isNotEmpty).toList();
   double? amount = _amountFromText(t);
-  final bool amountUnconfirmed = amount == null;
+  final bool amountUnconfirmed = amount == null || _amountsDisagree(t);
   amount ??= _amountFromLooseLines(lines);
   if (amount == null || amount <= 0) return null;
 
@@ -702,7 +732,7 @@ PingImportRow phonePeToRow(PhonePeEntry e) {
     accountName: known?.account.name ?? (e.accountDigits.isEmpty ? null : 'Account ••${e.accountDigits.substring(e.accountDigits.length > 4 ? e.accountDigits.length - 4 : 0)}'),
     walletName: known != null && known.account.wallet.isNotEmpty ? known.account.wallet : 'Unassigned',
     closed: known?.account.closed ?? false,
-    tickByDefault: true,
+    tickByDefault: !e.amountUnconfirmed,
     knownAccount: known != null,
     extraNote: _noteOf(e),
   );

@@ -253,4 +253,36 @@ UTR: 810016014305
 Powered by''');
   check(sevenWithDecimals != null && sevenWithDecimals.amount == 392.19 && sevenWithDecimals.amountUnconfirmed,
       'a rupee sign read as 7 before an amount with decimals is dropped: ${sevenWithDecimals?.amount}');
+  // ---- amounts that disagree, and what the review screen does with a doubtful amount
+  final disagree = parseUpiScreenshotText('''Transaction Successful
+05:21 pm on 31 Oct 2026
+Paid to
+JAGDISH KUMAR
+₹392.19
+Debited from
+XXXX566372
+₹92.19
+UTR: 810016014305''');
+  check(disagree != null && disagree.amountUnconfirmed, 'two different amounts, none seen twice, are flagged');
+  final agree = parseUpiScreenshotText('''Transaction Successful
+05:21 pm on 31 Oct 2026
+Paid to
+JAGDISH KUMAR
+₹392.19
+Debited from
+XXXX566372
+₹392.19
+UTR: 810016014305''');
+  check(agree != null && !agree.amountUnconfirmed && agree.amount == 392.19, 'the same amount twice is trusted');
+  check(!phonePeToRow(sevenWithDecimals!).tickByDefault, 'a doubtful amount is not ticked by default');
+  check(phonePeToRow(agree!).tickByDefault, 'a trusted amount is ticked by default');
+
+  // ---- an amount read again by zooming into it replaces a doubtful one
+  final zoomedIn = sevenWithDecimals!.withConfirmedAmount(392.19);
+  check(zoomedIn.amount == 392.19 && !zoomedIn.amountUnconfirmed && zoomedIn.party == sevenWithDecimals.party &&
+      zoomedIn.utr == sevenWithDecimals.utr, 'a confirmed amount keeps the rest of the payment');
+  check(amountWithRupeeSign('₹286') == 286 && amountWithRupeeSign('kit ₹392.19') == 392.19,
+      'a zoomed reading with a rupee sign gives the amount');
+  check(amountWithRupeeSign('7286') == null && amountWithRupeeSign('') == null,
+      'a zoomed reading without a rupee sign is not trusted');
 }

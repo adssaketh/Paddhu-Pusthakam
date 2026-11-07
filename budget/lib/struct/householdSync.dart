@@ -289,20 +289,51 @@ Future<void> _uploadTransactions(
     final Set<String> newerOnServer =
         await _rowsEditedLaterOnServer(db, hid, waiting);
 
-    final WriteBatch batch = db.batch();
-    for (final Transaction transaction in waiting) {
-      if (newerOnServer.contains(transaction.transactionPk)) continue;
-      batch.set(
-        db.doc('households/$hid/transactions/${transaction.transactionPk}'),
-        _transactionDocument(transaction, uid),
-      );
+    final List<Transaction> toSend = waiting
+        .where((t) => !newerOnServer.contains(t.transactionPk))
+        .toList();
+    // Rows that count as handled this round: the ones sent, and the ones left to the download side.
+    final Set<String> done = {
+      for (final Transaction t in waiting)
+        if (newerOnServer.contains(t.transactionPk)) t.transactionPk,
+    };
+    TimeoutException? stuck;
+    if (toSend.isNotEmpty) {
+      final WriteBatch batch = db.batch();
+      for (final Transaction transaction in toSend) {
+        batch.set(
+          db.doc('households/$hid/transactions/${transaction.transactionPk}'),
+          _transactionDocument(transaction, uid),
+        );
+      }
+      try {
+        await batch.commit().timeout(_serverTimeout);
+        done.addAll(toSend.map((t) => t.transactionPk));
+      } on TimeoutException catch (e) {
+        // The batch got no answer. Try the rows one by one: that shows which one is the problem
+        // (or the exact error the server gives), and sends the ones that can go.
+        noteHouseholdDownloadProblem("upload batch of ${toSend.length}", e);
+        for (final Transaction transaction in toSend) {
+          try {
+            await db
+                .doc('households/$hid/transactions/${transaction.transactionPk}')
+                .set(_transactionDocument(transaction, uid))
+                .timeout(const Duration(seconds: 10));
+            done.add(transaction.transactionPk);
+          } catch (e2) {
+            noteHouseholdDownloadProblem(
+                "upload of '${transaction.name}'", e2);
+            stuck = e;
+          }
+        }
+      }
     }
-    await batch.commit().timeout(_serverTimeout);
 
     // Remember what was uploaded (and which rows were left to the download side, so they are not
     // picked up again and again). If a transaction was edited meanwhile it is simply uploaded again.
     await database.batch((b) {
       for (final Transaction transaction in waiting) {
+        if (!done.contains(transaction.transactionPk)) continue;
         b.update(
           database.transactions,
           TransactionsCompanion(
@@ -313,6 +344,7 @@ Future<void> _uploadTransactions(
         );
       }
     });
+    if (stuck != null) throw stuck; // what is left is tried again by the next sync
   }
 }
 
@@ -404,7 +436,9 @@ Future<void> _uploadDeletions(FirebaseFirestore db, String hid) async {
   final List<DeleteLog> logs = await (database.select(database.deleteLogs)
         ..where((l) =>
             l.type.equalsValue(DeleteLogType.Transaction) &
-            l.dateTimeModified.isBiggerOrEqualValue(
+            // Strictly newer: each deletion goes out once. (With "or equal" the last one was sent again
+            // on every sync, which could flap a document in and out for the other members.)
+            l.dateTimeModified.isBiggerThanValue(
                 DateTime.fromMillisecondsSinceEpoch(cursor)))
         ..orderBy([(l) => OrderingTerm.asc(l.dateTimeModified)]))
       .get();
@@ -413,10 +447,18 @@ Future<void> _uploadDeletions(FirebaseFirestore db, String hid) async {
   int newCursor = cursor;
   for (final DeleteLog log in logs) {
     try {
-      await db
-          .doc('households/$hid/transactions/${log.entryPk}')
-          .delete()
+      final DocumentReference<Map<String, dynamic>> ref =
+          db.doc('households/$hid/transactions/${log.entryPk}');
+      // Only my own documents are deleted. Asking first matters: a delete the rules refuse would
+      // still show on this phone for a moment (as the document vanishing and coming back).
+      final DocumentSnapshot<Map<String, dynamic>> existing = await ref
+          .get(const GetOptions(source: Source.server))
           .timeout(_serverTimeout);
+      if (existing.exists &&
+          (existing.data()?['ownerId'] ?? '').toString() ==
+              currentHouseholdUserUid) {
+        await ref.delete().timeout(_serverTimeout);
+      }
     } on FirebaseException catch (e) {
       // Not uploaded before, or not allowed to delete it: nothing to do.
       if (e.code != 'permission-denied' && e.code != 'not-found') rethrow;
