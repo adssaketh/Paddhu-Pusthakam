@@ -322,14 +322,20 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
   Widget _buildRow(PingImportRow row) {
     final bool already = _isSaved(row);
     final bool isTicked = ticked.contains(row.smsId);
-    final Color amountColor = row.isExpense
-        ? Theme.of(context).colorScheme.error
-        : Colors.green.shade600;
+    final bool amountDoubtful = !already && row.extraNote.contains('CHECK THE AMOUNT');
+    final Color amountColor = amountDoubtful
+        ? Colors.orange.shade700
+        : row.isExpense
+            ? Theme.of(context).colorScheme.error
+            : Colors.green.shade600;
     final String money = convertToMoney(
         Provider.of<AllWallets>(context, listen: false), row.amount);
+    final bool checkAmount = !already && row.extraNote.contains('CHECK THE AMOUNT');
     final String detail = already
         ? 'Already in Paddhu Pusthakam'
-        : widget.reviewQueue
+        : checkAmount
+            ? 'CHECK THE AMOUNT against your payment, then tick it. Tap the pencil to correct it.'
+            : widget.reviewQueue
             ? 'Not added automatically: ${decideAutoSave(row).reason}'
             : '${row.categoryLabel.isEmpty ? 'No category suggested' : row.categoryLabel}  →  ${row.walletName}';
 
