@@ -289,20 +289,51 @@ Future<void> _uploadTransactions(
     final Set<String> newerOnServer =
         await _rowsEditedLaterOnServer(db, hid, waiting);
 
-    final WriteBatch batch = db.batch();
-    for (final Transaction transaction in waiting) {
-      if (newerOnServer.contains(transaction.transactionPk)) continue;
-      batch.set(
-        db.doc('households/$hid/transactions/${transaction.transactionPk}'),
-        _transactionDocument(transaction, uid),
-      );
+    final List<Transaction> toSend = waiting
+        .where((t) => !newerOnServer.contains(t.transactionPk))
+        .toList();
+    // Rows that count as handled this round: the ones sent, and the ones left to the download side.
+    final Set<String> done = {
+      for (final Transaction t in waiting)
+        if (newerOnServer.contains(t.transactionPk)) t.transactionPk,
+    };
+    TimeoutException? stuck;
+    if (toSend.isNotEmpty) {
+      final WriteBatch batch = db.batch();
+      for (final Transaction transaction in toSend) {
+        batch.set(
+          db.doc('households/$hid/transactions/${transaction.transactionPk}'),
+          _transactionDocument(transaction, uid),
+        );
+      }
+      try {
+        await batch.commit().timeout(_serverTimeout);
+        done.addAll(toSend.map((t) => t.transactionPk));
+      } on TimeoutException catch (e) {
+        // The batch got no answer. Try the rows one by one: that shows which one is the problem
+        // (or the exact error the server gives), and sends the ones that can go.
+        noteHouseholdDownloadProblem("upload batch of ${toSend.length}", e);
+        for (final Transaction transaction in toSend) {
+          try {
+            await db
+                .doc('households/$hid/transactions/${transaction.transactionPk}')
+                .set(_transactionDocument(transaction, uid))
+                .timeout(const Duration(seconds: 10));
+            done.add(transaction.transactionPk);
+          } catch (e2) {
+            noteHouseholdDownloadProblem(
+                "upload of '${transaction.name}'", e2);
+            stuck = e;
+          }
+        }
+      }
     }
-    await batch.commit().timeout(_serverTimeout);
 
     // Remember what was uploaded (and which rows were left to the download side, so they are not
     // picked up again and again). If a transaction was edited meanwhile it is simply uploaded again.
     await database.batch((b) {
       for (final Transaction transaction in waiting) {
+        if (!done.contains(transaction.transactionPk)) continue;
         b.update(
           database.transactions,
           TransactionsCompanion(
@@ -313,6 +344,7 @@ Future<void> _uploadTransactions(
         );
       }
     });
+    if (stuck != null) throw stuck; // what is left is tried again by the next sync
   }
 }
 

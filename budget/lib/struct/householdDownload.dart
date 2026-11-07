@@ -397,6 +397,21 @@ bool _sameCategoryContent(TransactionCategory a, TransactionCategory b) =>
 // ---------------------------------------------------------------------------
 // transactions
 
+/// SQLite says "database is locked" (code 5) when another connection holds it for a moment.
+/// The work is simply tried again a few times instead of being dropped.
+Future<void> _retryWhenLocked(Future<void> Function() work) async {
+  for (int attempt = 0;; attempt++) {
+    try {
+      await work();
+      return;
+    } catch (e) {
+      final bool locked = e.toString().contains('database is locked');
+      if (!locked || attempt >= 4) rethrow;
+      await Future.delayed(Duration(seconds: 1 + attempt * 2));
+    }
+  }
+}
+
 Future<void> _applyTransactions(
     QuerySnapshot<Map<String, dynamic>> snapshot, String myUid,
     {required bool isPublicQuery}) async {
@@ -404,8 +419,8 @@ Future<void> _applyTransactions(
   final changes = snapshot.docChanges;
   for (int start = 0; start < changes.length; start += _chunkSize) {
     if (generation != _generation) return; // stopped or left the household meanwhile
-    await _applyTransactionChunk(
-        changes.sublist(start, min(start + _chunkSize, changes.length)), myUid);
+    final part = changes.sublist(start, min(start + _chunkSize, changes.length));
+    await _retryWhenLocked(() => _applyTransactionChunk(part, myUid));
   }
   if (generation != _generation) return;
   // Only a snapshot that came from the server says what is really there.
@@ -419,7 +434,7 @@ Future<void> _applyTransactions(
   final Set<String>? a = _publicIds;
   final Set<String>? b = _privateIds;
   if (a == null || b == null) return;
-  await _reconcileTransactions(myUid, {...a, ...b});
+  await _retryWhenLocked(() => _reconcileTransactions(myUid, {...a, ...b}));
 }
 
 /// Compares everything this phone holds with what the server returned and corrects both sides:
