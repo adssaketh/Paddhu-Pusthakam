@@ -1,0 +1,427 @@
+== test/household_members_test.dart
+ok  initial is upper case
+ok  initial ignores leading spaces
+ok  empty name gives ?
+ok  blank name gives ?
+ok  initial works for non-Latin names
+ok  colour is stable
+ok  colour is within range
+ok  no colours gives 0
+ok  empty uid gives 0
+ok  different members do not all get the same colour
+ok  no label outside a household
+ok  no label for personal rows
+ok  label is the member's nickname
+ok  label for my own rows
+ok  an unclaimed row is mine
+ok  a household of one shows no labels
+ok  no names known gives no label
+ok  a removed member shows the fallback name
+ok  blank nickname shows the fallback name
+ok  two members have spending
+ok  biggest spender first, amounts added without sign
+ok  unclaimed rows are added to me
+ok  no rows gives an empty list
+ok  nobody signed in counts nothing
+ok  later remote edit wins
+ok  older remote edit does not overwrite
+ok  same time does not overwrite
+ok  a local row without a time counts as oldest
+ok  a remote row without a time never wins
+ok  nothing to compare means no change
+ok  another member's row is foreign
+ok  my row is not foreign
+ok  personal row is not foreign
+ok  unclaimed row is not foreign
+household members and merge: all checks passed
+PASS test/household_members_test.dart
+== test/household_migration_test.dart
+ok  v46 has no wallets.owner_uid
+ok  v46 has no transactions.owner_uid
+ok  v46 has no transactions.is_private
+ok  v47 wallets.owner_uid exists and may be empty (old rows stay unowned)
+ok  v47 transactions.owner_uid exists and may be empty
+ok  v47 transactions.is_private is a flag that defaults to false
+ok  v47 has no household_synced_at yet
+ok  v48 transactions.household_synced_at exists and may be empty
+ok  v48 keeps the v47 columns
+ok  current schema version is 48
+ok  both migration steps exist
+ok  step 46 to 47 adds wallets.ownerUid, transactions.ownerUid and isPrivate
+ok  step 47 to 48 adds transactions.householdSyncedAt
+ok  drift_schema_v46.json is saved
+ok  drift_schema_v47.json is saved
+ok  drift_schema_v48.json is saved
+ok  schema_versions.dart knows version 48
+household migration: all checks passed
+PASS test/household_migration_test.dart
+== test/household_ownership_test.dart
+ok  a household can have 8 people
+ok  one person: more can join
+ok  seven people: one more can join
+ok  eight people: the household is full
+ok  more than eight counts as full
+ok  owner can hand over to a member
+ok  a member cannot hand over
+ok  a member must be picked
+ok  cannot hand over to yourself
+ok  cannot hand over to someone who left
+ok  cannot hand over when I am not in the household
+ok  two-person household can hand over
+household ownership: all checks passed
+PASS test/household_ownership_test.dart
+== test/household_sharing_copies_test.dart
+ok  a well formed document is kept
+ok  a loan document is kept
+ok  an id that does not start with kind-owner- is skipped
+ok  an id with the wrong kind is skipped
+ok  a document whose payload is not a map is skipped
+ok  a document without a payload is skipped
+ok  an unknown kind is skipped
+ok  a document without an owner is skipped
+ok  nothing is skipped safely
+ok  a copy this phone does not have yet is written
+ok  a newer copy replaces the held one
+ok  the same change coming again is not written twice
+ok  an older copy never replaces a newer one
+ok  only the new and the newer ones are written from a mixed batch
+ok  the loan name is read
+ok  a blank loan name falls back
+ok  a loan without its row falls back
+ok  a loan row of the wrong type falls back
+ok  an archived loan is recognised
+ok  a loan that is not archived
+ok  a loan without its row is not archived
+ok  the terms of a loan are read
+ok  the ticked instalments come along
+ok  a loan without terms has none
+ok  broken terms are not used
+ok  progress counts the ticked instalments only (a viewer has no linked payments)
+ok  a deposit is read
+ok  the owner's account is never used on a viewer's phone
+ok  the note comes along
+ok  a deposit without dates is not shown
+ok  an empty payload is not a deposit
+ok  no figure from the owner means none is shown
+ok  the owner's figure is read
+ok  a negative figure is not used
+ok  a figure that is not a number is not used
+ok  a figure that is not finite is not used
+ok  without a figure only the ticked instalments are counted
+ok  with the owner's figure that is what has been paid
+ok  the total to pay does not depend on the figure
+ok  what this phone sent is not copied to my other phones
+ok  copies of other people's items are not copied to my other phones
+ok  copies are not merged item by item like my own loans and deposits
+ok  my own loans and deposits are still kept in step between my phones
+all good
+PASS test/household_sharing_copies_test.dart
+== test/household_sharing_edits_test.dart
+ok  an edit gets the current time
+ok  an edit is always later than the copy it started from
+ok  a phone clock that is behind still makes the edit win
+ok  a server copy changed meanwhile is a conflict
+ok  an unchanged server copy is no conflict
+ok  an older server copy is no conflict
+ok  a member's newer edit is applied to the real item
+ok  the owner's own change coming back is not applied again
+ok  a newer edit made on the owner phone wins over a member edit
+ok  a change that was already applied is not applied twice
+ok  a first change on a never sent item is applied
+ok  a repair upload is later than the broken server copy
+ok  a repair upload keeps a later local time
+ok  the owner's account is never sent
+ok  the rest of the deposit is sent
+ok  a good payload is accepted
+ok  a payload about another deposit is refused
+ok  a payload that is not a map is refused
+ok  a payload without dates is refused
+ok  a blank bank is refused
+ok  a zero amount is refused
+ok  a negative amount is refused
+ok  an absurd rate is refused
+ok  a negative rate is refused
+ok  a maturity before the start is refused
+ok  an unknown compounding is refused
+ok  a zero bank maturity amount is refused
+ok  a bank maturity amount is accepted
+ok  a very long bank name is refused
+ok  the viewer's changes are applied
+ok  the owner's account is kept, not taken from the server
+ok  a deposit without an account stays without one
+ok  no account is invented
+ok  a good loan payload is accepted
+ok  the ticked instalments come along
+ok  nothing is refused safely
+ok  a loan without its row is refused
+ok  a loan without terms is refused
+ok  a blank loan name is refused
+ok  a very long loan name is refused
+ok  a zero loan amount is refused
+ok  zero months is refused
+ok  an absurd number of months is refused
+ok  a negative rate is refused
+ok  an absurd GST is refused
+ok  a negative fee is refused
+ok  ticked instalments outside 1..months are dropped
+ok  the viewer's changes are applied to the owner's loan terms
+ok  the owner's account and note are kept
+ok  the loan amount is worked out from the terms
+ok  the new name goes out, trimmed
+ok  the loan's own row fields stay as they were
+ok  the amount is the total of the new terms
+ok  the new terms go out
+ok  what a viewer sends is accepted by the owner phone
+ok  a copy without a row still produces a payload
+ok  a viewer's edit keeps the owner's figure until a new one comes
+ok  a copy without a figure stays without one
+ok  the extra figure does not make an edit unusable
+ok  a figure that was never sent counts as changed
+ok  a difference of less than a cent is not a change
+ok  a new payment is a change
+ok  a changed figure is sent with the time of now
+ok  never earlier than the item's own newest change, even with a clock that is behind
+ok  a server copy that is gone is sent again
+ok  a member's edit that is waiting goes first, the figure does not overwrite it
+ok  a viewer may write when the owner allowed edits
+ok  a viewer may not write when the owner did not allow edits
+ok  a viewer may not change who can see the item
+ok  a viewer may not switch editing off for everybody
+ok  somebody the item is not shared with may not write
+ok  the same people in another order is no change
+ok  adding a person is a change
+ok  removing a person is a change
+ok  allowing edits is a change
+ok  the edit switch means nothing while nobody can see the item
+ok  sharing something that was private is a change
+ok  making something private again is a change
+ok  nobody gives no label
+ok  one person
+ok  two people
+ok  three people
+ok  more than three people are counted
+all good
+PASS test/household_sharing_edits_test.dart
+== test/household_sharing_test.dart
+ok  the owner sees their own item
+ok  private by default: nobody else sees it
+ok  picked members see it
+ok  a member who was not picked does not see it
+ok  an empty uid sees nothing
+ok  a person outside the household sees nothing
+ok  a person who left no longer sees it
+ok  items of an owner who left are seen by nobody
+ok  the owner who left is not in the household any more
+ok  the owner edits their own item
+ok  a viewer cannot edit when the owner has not allowed it
+ok  a viewer edits when the owner allowed it
+ok  allowing edits does not open it to members who were not picked
+ok  a person who left cannot edit
+ok  the owner manages the item
+ok  an editor cannot delete it or change who sees it
+ok  an empty uid manages nothing
+ok  picked members are kept in order
+ok  the owner is never in the list
+ok  duplicates are dropped
+ok  people outside the household and blanks are dropped
+ok  at most 7 people besides the owner
+ok  the list limit follows the household limit of 8
+ok  added and removed people are found
+ok  no change is empty
+ok  the owner can share a new item
+ok  nobody can create an item for somebody else
+ok  a stranger cannot create anything
+ok  only loans and deposits can be shared
+ok  cannot share with somebody outside the household
+ok  the owner cannot list themselves
+ok  the same person cannot be listed twice
+ok  the owner can take people out
+ok  the owner can allow edits
+ok  the owner cannot be changed
+ok  the item cannot become another one
+ok  the kind cannot change
+ok  an editor can save a change
+ok  a viewer cannot save when edits are not allowed
+ok  an editor cannot switch editing off
+ok  an editor cannot add people
+ok  an editor cannot take people out
+ok  a member who was not picked cannot edit
+ok  a person who left cannot save
+ok  bad entries in the list are ignored
+ok  fields are read
+ok  a document without an id is ignored
+ok  an unknown kind is ignored
+ok  something that is not a document is ignored
+ok  missing fields mean private, not editable
+ok  a document survives a round trip
+ok  document id has the kind, owner and local id
+ok  a slash in the local id is replaced
+ok  two owners can use the same local id
+ok  a newer server copy replaces mine
+ok  the same time is my own change coming back
+ok  an older server copy is ignored
+ok  an item not on the server yet is uploaded
+ok  my change is uploaded over an older server copy
+ok  nothing to upload when the server already has it
+ok  an editor changed it meanwhile: take theirs, do not overwrite
+ok  copies the server no longer shows me are removed
+ok  copies I may still see are kept
+ok  leaving drops other people's copies and keeps my own items
+ok  after joining again, everything I shared before is stale and goes
+ok  an item I still share is not purged
+ok  nothing on the server means nothing to purge
+ok  while sis is a member, I see what she shared with me
+ok  after sis left or was removed, her items are hidden from me
+ok  an item stays with the person who made it
+ok  the new household owner does not become the owner of other people's items
+ok  who I share with is kept in step between my own phones
+ok  what this phone sent is not copied to my other phones
+ok  a choice made on the other phone is added
+ok  the newer change (made private again) wins
+household sharing: all checks passed
+PASS test/household_sharing_test.dart
+== test/household_visibility_test.dart
+ok  unclaimed row counts as mine
+ok  personal row counts as mine
+ok  own row counts as mine
+ok  another member's row is not mine
+ok  outside a household everything is visible
+ok  outside a household the view does not matter
+ok  Everyone shows my shared transaction
+ok  Everyone shows another member's shared transaction
+ok  Everyone shows a row that is about to be claimed
+ok  Everyone hides my private transaction
+ok  Everyone hides another member's private transaction
+ok  Everyone hides transactions kept personal when joining
+ok  Mine shows my transaction
+ok  Mine shows my private transaction
+ok  Mine shows my personal transaction
+ok  Mine shows an unclaimed row
+ok  Mine hides another member's transaction
+ok  single user can edit everything
+ok  I can edit my own
+ok  I can edit an unclaimed row
+ok  I can edit my personal row
+ok  I cannot edit another member's
+ok  single user can delete everything
+ok  I can delete my own
+ok  I cannot delete another member's by default
+ok  I can delete another member's when the owner allowed it
+ok  a copy of another member's row is claimed by whoever copies
+ok  a copy of my row is claimed by me
+ok  a copy of an unclaimed row stays unclaimed
+ok  a copy of a personal row stays personal
+ok  placeholder account id
+ok  placeholder account is recognised
+ok  normal account is not a placeholder
+ok  prefix only counts at the start
+ok  placeholder hidden while balances are off
+ok  placeholder shown when the owner switches balances on
+ok  own account is never hidden
+household visibility: all checks passed
+PASS test/household_visibility_test.dart
+== test/settings_merge_test.dart
+ok  loans from both devices are kept
+ok  newer loan edit wins
+ok  older edit does not overwrite
+ok  deleted loan stays deleted
+ok  old copy does not resurrect it
+ok  deposits merged by id, newer wins
+ok  nothing to merge
+ok  legacy deposit synced
+ok  newer setting wins, default without a time does not
+ok  older setting ignored
+ok  device settings are not synced
+PASS test/settings_merge_test.dart
+== test/fixed_deposit_test.dart
+maturity 107185.9
+ok  quarterly 7% for 1 year ~107,186
+ok  nothing before start
+ok  all interest after maturity
+ok  half year ~3,5xx (3520.78)
+ok  simple 7% = 107,000
+ok  bank figure wins
+ok  json round trip
+ok  30 days to go
+ok  principal and rate
+ok  dates
+ok  maturity amount, number, bank
+ok  tenure fallback
+ok  matured is not a booking
+ok  ordinary debit ignored
+ok  no amount -> not guessed
+ok  same deposit detected
+PASS test/fixed_deposit_test.dart
+== test/loan_schedule_test.dart
+instalments 24, last 21062.21, last due 2027-12-14 00:00:00.000
+interest 55373.21 gst 9967.17 gstFee 1620.0 total 525960.38
+ok  24 instalments
+ok  first due 14 Jan 2026
+ok  last due 14 Dec 2027
+ok  GST on interest ~9,967
+ok  GST on fee 1,620
+ok  total payable ~5,25,954
+ok  10 EMIs due by 3 Nov 2026 (14 Jan..14 Oct)
+paid ticks 216940.36 outstanding 309020.02
+ok  paid = 10 EMI + their GST
+ok  json round trip
+ok  month end rollover
+ok  a 21,057 payment lowers outstanding by 21,057
+ok  income linked is not a payment
+PASS test/loan_schedule_test.dart
+== test/phonepe_other_apps_test.dart
+test/phonepe_other_apps_test.dart:281:20: Warning: Operand of null-aware operation '!' has type 'PhonePeEntry' which excludes null.
+ - 'PhonePeEntry' is from 'lib/struct/phonePeParser.dart'.
+  final zoomedIn = sevenWithDecimals!.withConfirmedAmount(392.19);
+                   ^
+ok  paytm amount/app 697.43 Paytm
+ok  paytm party "Indian Oil Petrol Pump 2 Srichakra Fuels Station"
+ok  paytm date 2026-10-13 14:12:00.000
+ok  paytm ref/account 628671952568 6372
+ok  paytm wallet Saketh - Axis
+ok  gpay Google Pay 304.0 "Swiggy"
+ok  gpay date 2025-10-30 17:45:00.000
+ok  gpay ref/account 566939649602 64
+ok  bhim BHIM 184.0 "Zepto"
+ok  bhim date 2026-10-31 21:36:00.000
+ok  bhim account/ref 566372 213607712405
+ok  bhim wallet
+ok  cred CRED 132.0 "Pavan Medical And General"
+ok  cred date/account 2026-09-22 17:26:00.000 64
+ok  cred has a stable id without a ref: pp-202609221726-132.0-8260afc9
+ok  mobikwik 133.19 "Zomato Limited"
+ok  mobikwik date/ref/account 2026-10-28 11:11:00.000 104332350049 6372
+ok  phonepe amount 286.0
+ok  phonepe party/date "Blinkit" 2026-11-06 06:04:00.000
+ok  a long number after a rupee sign is not an amount
+ok  a UTR-sized number on the next line is not an amount
+ok  Rs inside another word ("Offers 500") is not a rupee sign
+ok  the amount shown twice wins over one that was read once
+ok  the same, in the other order
+ok  INR with commas and paise
+ok  when only an impossible amount is found, nothing is guessed
+ok  the limit for one payment
+ok  an amount with a rupee sign is confirmed
+ok  an amount found without any rupee sign is flagged
+ok  the note asks to check the amount
+ok  a confirmed amount has no such note
+ok  a "T" read for the rupee sign still gives 286, flagged
+ok  failed ignored
+ok  random text ignored
+ok  no readings, no result
+ok  a reading with a rupee sign beats one without
+ok  with nothing better the only reading stays
+ok  the amount seen most often wins
+ok  a tie goes to the earlier reading
+ok  a failed reading is skipped
+ok  a rupee sign read as 7 is dropped: 286.0
+ok  a real 7,286 with a rupee sign stays
+ok  a rupee sign read as 7 before an amount with decimals is dropped: 392.19
+ok  two different amounts, none seen twice, are flagged
+ok  the same amount twice is trusted
+ok  a doubtful amount is not ticked by default
+ok  a trusted amount is ticked by default
+ok  a confirmed amount keeps the rest of the payment
+ok  a zoomed reading with a rupee sign gives the amount
+ok  a zoomed reading without a rupee sign is not trusted
+PASS test/phonepe_other_apps_test.dart

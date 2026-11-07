@@ -1,0 +1,3 @@
+warning • The '!' will have no effect because the receiver can't be null • test/phonepe_other_apps_test.dart:281:37 • unnecessary_non_null_assertion
+
+246 issues found. (ran in 18.9s)

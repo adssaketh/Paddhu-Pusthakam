@@ -1,0 +1,2 @@
+   info • 'androidAllowWhileIdle' is deprecated and shouldn't be used. Deprecated in favor of the androidScheduleMode parameter • lib/struct/fixedDepositStore.dart:148:11 • deprecated_member_use
+   info • Unnecessary cast • lib/struct/householdSharedItems.dart:417:24 • unnecessary_cast

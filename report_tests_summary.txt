@@ -1,0 +1,11 @@
+PASS test/household_members_test.dart
+PASS test/household_migration_test.dart
+PASS test/household_ownership_test.dart
+PASS test/household_sharing_copies_test.dart
+PASS test/household_sharing_edits_test.dart
+PASS test/household_sharing_test.dart
+PASS test/household_visibility_test.dart
+PASS test/settings_merge_test.dart
+PASS test/fixed_deposit_test.dart
+PASS test/loan_schedule_test.dart
+PASS test/phonepe_other_apps_test.dart
