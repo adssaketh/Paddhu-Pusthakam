@@ -172,9 +172,9 @@ double? _amountFromLooseLines(List<String> lines) {
     final RegExpMatch? m = loose.firstMatch(lines[i]);
     String? raw = m?.group(1);
     // The rupee sign itself is often read as a "7" ("₹286" becomes "7286"). A real amount of a thousand or
-    // more is written with a comma ("₹7,286") or has decimals, so a bare run of four or more digits that
+    // more is written with a comma ("₹7,286") or has decimals, so a bare run of four or more digits (with or without decimals) that
     // starts with 7 and has no rupee sign is a rupee sign read as a 7: that first digit is dropped.
-    if (raw != null && raw.length >= 4 && raw.startsWith('7') && RegExp(r'^\d+$').hasMatch(raw)) {
+    if (raw != null && raw.startsWith('7') && RegExp(r'^\d{4,}(?:\.\d{1,2})?$').hasMatch(raw)) {
       raw = raw.substring(1);
     }
     final double? v = _plausibleMoney(raw);

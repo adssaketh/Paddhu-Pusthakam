@@ -234,4 +234,23 @@ XXXX566372
 ₹7,286
 UTR: 995940082093''');
   check(realSeven != null && realSeven.amount == 7286 && !realSeven.amountUnconfirmed, 'a real 7,286 with a rupee sign stays');
+
+  final sevenWithDecimals = parseUpiScreenshotText('''Transaction Successful
+05:21 pm on 31 Oct 2026
+Paid to
+JAGDISH KUMAR
+7392.19
+paytm.s274ml4@pty
+Transfer Details
+Message
+Verified Paytm Merchant
+PhonePe Transaction ID
+T2610311721290337063793
+Debited from
+XXXX566372
+7392.19
+UTR: 810016014305
+Powered by''');
+  check(sevenWithDecimals != null && sevenWithDecimals.amount == 392.19 && sevenWithDecimals.amountUnconfirmed,
+      'a rupee sign read as 7 before an amount with decimals is dropped: ${sevenWithDecimals?.amount}');
 }
