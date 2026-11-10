@@ -1,0 +1,19 @@
+{
+ "app": "Ping",
+ "type": "paddhu-sms-export",
+ "version": 1,
+ "from": 1793003600000,
+ "to": 1793003600000,
+ "sms": [
+  {
+   "id": "n1793003600000-33c82e5b",
+   "address": "AD-AXISBK-S",
+   "body": "Your FD no. X0001 is booked for INR 30000 for 12 months at 7.1% p.a. Axis Bank",
+   "date": 1793003600000,
+   "brand": "Axis Bank",
+   "brandKey": "axisbank",
+   "kind": "fixed_deposit",
+   "category": "transactions"
+  }
+ ]
+}

@@ -1,0 +1,62 @@
+name: Ping contract tests
+
+# Checks Paddhu Pusthakam against the shared Ping <-> Paddhu contract (contract/ping-paddhu/, identical in
+# adssaketh/Ping) and the pure-Dart tests of the Ping import. Fast: no Android build.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "budget/**"
+      - "contract/**"
+      - ".github/workflows/ping-contract.yml"
+  push:
+    branches: [main, ping-native-integration]
+    paths:
+      - "budget/**"
+      - "contract/**"
+      - ".github/workflows/ping-contract.yml"
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Kolkata # the content key uses the phone's local day (see contract SPEC section 3)
+    defaults:
+      run:
+        working-directory: budget
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.19.6"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Contract (Dart)
+        run: dart run test/ping_contract_test.dart
+
+      - name: Ping import (existing checks)
+        run: |
+          dart run tool/check_ping_import.dart
+          dart run test/auto_sms_policy_test.dart
+          dart run test/fixed_deposit_test.dart
+
+      - name: Certificate pinning (plain Java)
+        run: |
+          javac -d /tmp/pcc android/app/src/main/java/com/mansaketh/paddhupusthakam/PingCertCheck.java tool/PingCertCheckTest.java
+          java -cp /tmp/pcc com.mansaketh.paddhupusthakam.PingCertCheckTest
+
+      - name: The pinned digest in the provider equals the one in the contract
+        run: |
+          want=$(grep -o '[0-9a-f]\{64\}' ../contract/ping-paddhu/SPEC.md | head -1)
+          grep -q "$want" android/app/src/main/java/com/mansaketh/paddhupusthakam/PingInboxProvider.java
+          echo "pinned digest $want is in PingInboxProvider.java"

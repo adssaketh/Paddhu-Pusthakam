@@ -199,14 +199,7 @@ Future<PingInboxResult> processPingInbox() async {
       // list below: when it also says money was debited, that part is still saved as a transaction.
       for (final Map<String, dynamic> item in items) {
         try {
-          final DateTime date = DateTime.fromMillisecondsSinceEpoch(
-              item['date'] is num ? (item['date'] as num).toInt() : DateTime.now().millisecondsSinceEpoch);
-          final FdSmsParse? fd = parseFixedDepositSms(
-            body: (item['body'] ?? '').toString(),
-            sender: (item['address'] ?? '').toString(),
-            smsDate: date,
-            smsId: (item['id'] ?? '').toString(),
-          );
+          final FdSmsParse? fd = fixedDepositOfPingItem(item);
           if (fd != null && await addFixedDepositIfNew(fd.deposit)) fixedDeposits++;
         } catch (_) {}
       }

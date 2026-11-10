@@ -6,6 +6,8 @@ import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/autoSmsPolicy.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/fixedDeposit.dart';
+import 'package:budget/struct/fixedDepositStore.dart';
 import 'package:budget/struct/phonePeTwins.dart';
 import 'package:budget/struct/cardDuesStore.dart';
 import 'package:budget/struct/pingImport.dart';
@@ -118,6 +120,24 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
           return;
         }
         parsed = parsePingExport(text);
+        // Fixed deposits in the file (Ping routes them with kind "fixed_deposit"): added to the Fixed
+        // deposits page, never twice. The message itself stays in the list below when it also debits money.
+        try {
+          int added = 0;
+          for (final FdSmsParse fd in parsePingFixedDeposits(text)) {
+            if (await addFixedDepositIfNew(fd.deposit)) added++;
+          }
+          if (added > 0) {
+            openSnackbar(SnackbarMessage(
+              title:
+                  'Added $added fixed deposit${added == 1 ? '' : 's'} from Ping',
+              icon: appStateSettings["outlinedIcons"] == true
+                  ? Icons.savings_outlined
+                  : Icons.savings_rounded,
+              timeout: const Duration(seconds: 5),
+            ));
+          }
+        } catch (_) {}
       }
       try {
         await recordCardDues(parsed.cardDues);

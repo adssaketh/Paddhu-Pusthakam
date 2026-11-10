@@ -12,6 +12,8 @@ import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/sharedBudgetSettings.dart';
 import 'package:budget/pages/transactionsListPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/pingImport.dart';
+import 'package:budget/struct/pingOpen.dart';
 import 'package:budget/struct/navBarIconsData.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/upcomingTransactionsFunctions.dart';
@@ -2095,6 +2097,31 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           }
         },
         actions: [
+          // A transaction made from a Ping SMS: open that message in Ping (lib/struct/pingOpen.dart)
+          if (widget.transaction != null &&
+              pingSmsRefOfNote(widget.transaction!.note) != null)
+            IconButton(
+              padding: EdgeInsetsDirectional.all(15),
+              tooltip: "View SMS in Ping",
+              onPressed: () async {
+                final PingSmsRef? ref =
+                    pingSmsRefOfNote(widget.transaction!.note);
+                if (ref == null) return;
+                final String? problem =
+                    openSmsInPingMessage(await openSmsInPing(ref));
+                if (problem != null) {
+                  openSnackbar(SnackbarMessage(
+                    title: problem,
+                    icon: appStateSettings["outlinedIcons"]
+                        ? Icons.sms_outlined
+                        : Icons.sms_rounded,
+                  ));
+                }
+              },
+              icon: Icon(appStateSettings["outlinedIcons"]
+                  ? Icons.sms_outlined
+                  : Icons.sms_rounded),
+            ),
           widget.transaction != null
               ? IconButton(
                   padding: EdgeInsetsDirectional.all(15),

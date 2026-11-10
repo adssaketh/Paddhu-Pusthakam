@@ -3,6 +3,11 @@ package com.mansaketh.paddhupusthakam;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
+import android.os.Build;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -32,6 +37,14 @@ public class PingInboxProvider extends ContentProvider {
     static final String AUTHORITY = "com.mansaketh.paddhupusthakam.pinginbox";
     /** Only this app may hand messages over. The system fills in the caller, it cannot be faked in the call. */
     static final String ALLOWED_CALLER = "com.ping.sms";
+    /**
+     * SHA-256 of Ping's release signing certificate (contract/ping-paddhu/SPEC.md section 7). The caller must have the
+     * right package name AND be signed with this certificate. Read from Ping's `dev` APK with apksigner on 10 Nov 2026;
+     * CI in Ping checks that the `prod` APK has the same digest. More than one digest can be listed (for a key change).
+     */
+    static final String[] PINNED_CERT_SHA256 = {
+        "12cb1f4ff2ddcd91feda62d09f555ccc6c10a8f270c031908e6ee38dec20a502"
+    };
     static final String METHOD_ENQUEUE = "enqueue";
     static final String INBOX_DIR = "ping_inbox";
 
@@ -70,6 +83,11 @@ public class PingInboxProvider extends ContentProvider {
             result.putString("error", "no context");
             return result;
         }
+        if (!callerHasPinnedCertificate(context, caller)) {
+            result.putBoolean("ok", false);
+            result.putString("error", "caller not allowed");
+            return result;
+        }
 
         try {
             synchronized (LOCK) {
@@ -100,6 +118,34 @@ public class PingInboxProvider extends ContentProvider {
             result.putString("error", String.valueOf(e.getMessage()));
         }
         return result;
+    }
+
+    /** true when [caller] is signed (only) with a certificate whose SHA-256 is in [PINNED_CERT_SHA256]. */
+    private static boolean callerHasPinnedCertificate(Context context, String caller) {
+        try {
+            PackageManager pm = context.getPackageManager();
+            Signature[] signers;
+            if (Build.VERSION.SDK_INT >= 28) {
+                PackageInfo info = pm.getPackageInfo(caller, PackageManager.GET_SIGNING_CERTIFICATES);
+                SigningInfo signing = info.signingInfo;
+                if (signing == null) return false;
+                signers = signing.hasMultipleSigners() ? signing.getApkContentsSigners() : signing.getSigningCertificateHistory();
+            } else {
+                @SuppressWarnings("deprecation")
+                PackageInfo info = pm.getPackageInfo(caller, PackageManager.GET_SIGNATURES);
+                @SuppressWarnings("deprecation")
+                Signature[] legacy = info.signatures;
+                signers = legacy;
+            }
+            if (signers == null || signers.length == 0) return false;
+            // every signer must be pinned (a second, unknown signer is refused)
+            for (Signature signer : signers) {
+                if (!PingCertCheck.isPinned(signer.toByteArray(), PINNED_CERT_SHA256)) return false;
+            }
+            return true;
+        } catch (Throwable e) {
+            return false; // cannot check = not allowed
+        }
     }
 
     // The provider has no tables: everything goes through call().

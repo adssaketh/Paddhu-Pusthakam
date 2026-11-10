@@ -1,0 +1,16 @@
+{
+ "app": "Ping",
+ "type": "paddhu-sms-export",
+ "version": 1,
+ "createdAt": "2026-11-07T10:00:00.000Z",
+ "from": 1793007200000,
+ "to": 1793007200000,
+ "sms": [
+  {
+   "id": "ping-m-test-1",
+   "address": "VM-TESTBK",
+   "body": "Rs 75.00 spent on Test Card XX0001 at TEST MART on 07-11-26.",
+   "date": 1793007200000
+  }
+ ]
+}

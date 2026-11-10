@@ -8,6 +8,7 @@
 import 'dart:convert';
 
 import 'cardDues.dart';
+import 'fixedDeposit.dart';
 import 'instrumentParser.dart';
 import 'knownAccounts.dart';
 import 'smsTransactionParser.dart';
@@ -19,6 +20,13 @@ const String kPingNoteMarker = 'Ping SMS #';
 /// Second marker: the same SMS can arrive twice, once from the "Add to Paddhu" button (which has no Android
 /// SMS id) and once from a date range, so the text of the message (and its day) is also remembered.
 const String kPingKeyMarker = 'Ping SMS key ';
+
+/// Third marker (additive, new notes only): the raw sender header of the message (for example `AX-AXISBK-S`),
+/// so "View SMS in Ping" can find the message again (contract/ping-paddhu/SPEC.md section 8). Only written
+/// for business-style headers (letters, digits, `.`, `_`, `&`, `-`); a phone number is never stored here.
+const String kPingFromMarker = 'Ping SMS from ';
+
+final RegExp _safeSenderRe = RegExp(r'^[A-Za-z0-9._&-]{1,32}$');
 
 /// File name used when the shared file is copied into the app's cache (ShareReceiverActivity.java).
 const String kPingImportFileName = 'ping-import.json';
@@ -82,7 +90,9 @@ class PingImportRow {
     final account = accountName;
     final head = account == null ? '' : '$account${closed ? ' (closed)' : ''}\n';
     final extra = extraNote.isEmpty ? '' : '$extraNote\n';
-    return '$head$extra$kPingNoteMarker$smsId $kPingKeyMarker$contentKey';
+    final String from =
+        _safeSenderRe.hasMatch(sender) ? ' $kPingFromMarker$sender' : '';
+    return '$head$extra$kPingNoteMarker$smsId $kPingKeyMarker$contentKey$from';
   }
 }
 
@@ -126,6 +136,10 @@ String _stableHash(String text) {
   }
   return h.toRadixString(16);
 }
+
+/// The content key of a message (see kPingKeyMarker): shared contract with Ping, checked against
+/// contract/ping-paddhu/golden/ids-and-keys.json by test/ping_contract_test.dart.
+String pingContentKey(String body, DateTime date) => _contentKey(body, date);
 
 String _contentKey(String body, DateTime date) {
   final String normalized = body.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -239,4 +253,82 @@ CardDueEntry? _cardDueOf(ParsedSmsTransaction parsed, String body, DateTime date
     date: date,
     note: parsed.title,
   );
+}
+
+/// The fixed deposit one SMS item of a Ping export announces, or null (A5.2 item 4 of the Ping <-> Paddhu
+/// contract, contract/ping-paddhu/SPEC.md section 2).
+///
+/// Ping (6a onwards) writes `kind` into each item: `fixed_deposit` is routed to the fixed deposit reader,
+/// `transaction` is not tried (Ping already found it is no deposit booking). When `kind` is missing or has a
+/// value this app does not know (an older Ping, a newer Ping), Paddhu's own detection decides, exactly as
+/// before. The reader itself ([parseFixedDepositSms]) always has the last word.
+FdSmsParse? fixedDepositOfPingItem(Map item) {
+  final String kind = (item['kind'] ?? '').toString();
+  if (kind == 'transaction') return null;
+  final DateTime date = _dateFromMs(item['date']) ?? DateTime.now();
+  return parseFixedDepositSms(
+    body: (item['body'] ?? '').toString(),
+    sender: (item['address'] ?? '').toString(),
+    smsDate: date,
+    smsId: (item['id'] ?? '').toString(),
+  );
+}
+
+/// Every fixed deposit announced in a Ping export (date-range file, share, or review list), see
+/// [fixedDepositOfPingItem]. Throws a FormatException when the text is not a Ping export.
+List<FdSmsParse> parsePingFixedDeposits(String jsonText) {
+  final dynamic decoded = jsonDecode(jsonText);
+  if (decoded is! Map<String, dynamic> ||
+      decoded['type'] != 'paddhu-sms-export' ||
+      decoded['sms'] is! List) {
+    throw const FormatException(
+        'This file is not a Ping export for Paddhu Pusthakam.');
+  }
+  final found = <FdSmsParse>[];
+  final seen = <String>{};
+  for (final dynamic item in decoded['sms'] as List) {
+    if (item is! Map) continue;
+    final String id = (item['id'] ?? '').toString();
+    if (id.isNotEmpty && !seen.add(id)) continue;
+    final FdSmsParse? fd = fixedDepositOfPingItem(item);
+    if (fd != null) found.add(fd);
+  }
+  return found;
+}
+
+/// What "View SMS in Ping" sends to Ping (action com.ping.sms.action.OPEN_SMS): Ping needs [smsId], or
+/// [address] together with [date] (contract/ping-paddhu/SPEC.md section 8).
+class PingSmsRef {
+  const PingSmsRef({this.smsId, this.address, this.date});
+  final String? smsId;
+  final String? address;
+
+  /// Milliseconds since the epoch.
+  final int? date;
+
+  @override
+  String toString() => 'PingSmsRef($smsId, $address, $date)';
+}
+
+/// Finds the Ping message a transaction was made from, from its note, or null when the note does not say
+/// enough to find it again (a PhonePe entry, a transaction not from Ping, an older note of an
+/// automatically sent message whose sender was not stored).
+///
+/// - The phone's SMS `_id` (all digits) or `ping-<id>`: sent as `smsId` (with the sender when known).
+/// - `n<timestamp>-<hash>` (the notification button and automatic send, which have no phone `_id`): the
+///   timestamp in the id is the message's date, so `date` plus the stored sender is used.
+PingSmsRef? pingSmsRefOfNote(String note) {
+  final RegExpMatch? idMatch = RegExp(r'Ping SMS #([\w-]+)').firstMatch(note);
+  if (idMatch == null) return null;
+  final String id = idMatch.group(1)!;
+  if (id.startsWith('pp-')) return null;
+  final String? address =
+      RegExp(r'Ping SMS from ([A-Za-z0-9._&-]{1,32})').firstMatch(note)?.group(1);
+  final RegExpMatch? n = RegExp(r'^n(\d{10,15})-[0-9a-f]{1,8}$').firstMatch(id);
+  if (n != null) {
+    if (address == null) return null;
+    return PingSmsRef(address: address, date: int.parse(n.group(1)!));
+  }
+  if (id.length > 40) return null;
+  return PingSmsRef(smsId: id, address: address);
 }

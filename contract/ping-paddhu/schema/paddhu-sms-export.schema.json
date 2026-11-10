@@ -1,0 +1,33 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://github.com/adssaketh/Ping/contract/ping-paddhu/schema/paddhu-sms-export.schema.json",
+ "title": "paddhu-sms-export, version 1",
+ "description": "What Ping hands to Paddhu Pusthakam. Unknown fields MUST be ignored by the reader (both directions stay compatible).",
+ "type": "object",
+ "required": ["app", "type", "version", "sms"],
+ "properties": {
+  "app": { "type": "string" },
+  "type": { "const": "paddhu-sms-export" },
+  "version": { "const": 1 },
+  "createdAt": { "type": "string", "minLength": 1, "description": "ISO 8601 UTC with milliseconds. Sent by the date-range file and the long-press path only." },
+  "from": { "type": "integer", "minimum": 0, "description": "ms since epoch" },
+  "to": { "type": "integer", "minimum": 0, "description": "ms since epoch" },
+  "sms": { "type": "array", "items": { "$ref": "#/$defs/item" } }
+ },
+ "$defs": {
+  "item": {
+   "type": "object",
+   "required": ["id", "address", "body", "date"],
+   "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "address": { "type": "string", "description": "the raw sender, exactly as received (never normalised)" },
+    "body": { "type": "string", "description": "the full text, multipart parts joined in order, never altered" },
+    "date": { "type": "integer", "minimum": 1, "description": "Telephony.Sms.DATE in ms (not DATE_SENT)" },
+    "brand": { "type": "string", "minLength": 1, "description": "optional: display name of the sender brand, e.g. Axis Bank" },
+    "brandKey": { "type": "string", "pattern": "^[a-z0-9]+$", "description": "optional: stable key of the brand logo, e.g. axisbank" },
+    "kind": { "enum": ["transaction", "fixed_deposit"], "description": "optional: what Ping thinks the message is; a fixed deposit wins when both patterns match" },
+    "category": { "enum": ["personal", "transactions", "services", "promotions"], "description": "optional: Ping's category of the sender's conversation" }
+   }
+  }
+ }
+}
