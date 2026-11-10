@@ -36,9 +36,9 @@ AppColors getAppColors(
       : appStateSettings["accentSystemColor"] == true &&
               appStateSettings["materialYou"] &&
               appStateSettings["batterySaver"] == false
-          ? darkenPastel(
-              themeData.colorScheme.primary,
-              amount: 0.85,
+          ? Color.alphaBlend(
+              themeData.colorScheme.primary.withOpacity(0.08),
+              themeData.colorScheme.background,
             )
           : appStateSettings["materialYou"]
               ? darkenPastel(accentColor, amount: 0.8)
@@ -73,10 +73,7 @@ AppColors getAppColors(
             "standardContainerColor": getPlatform() == PlatformOS.isIOS
                 ? themeData.colorScheme.background
                 : appStateSettings["materialYou"]
-                    ? lightenPastel(
-                        themeData.colorScheme.secondaryContainer,
-                        amount: 0.3,
-                      )
+                    ? lightDarkAccentHeavyLight
                     : lightDarkAccentHeavyLight,
           },
         )
@@ -111,10 +108,7 @@ AppColors getAppColors(
             "standardContainerColor": getPlatform() == PlatformOS.isIOS
                 ? themeData.colorScheme.background
                 : appStateSettings["materialYou"]
-                    ? darkenPastel(
-                        themeData.colorScheme.secondaryContainer,
-                        amount: 0.6,
-                      )
+                    ? lightDarkAccentHeavyLight
                     : lightDarkAccentHeavyLight,
           },
         );
@@ -390,11 +384,17 @@ ColorScheme getColorScheme(Brightness brightness) {
     final ColorScheme? systemScheme =
         brightness == Brightness.light ? systemLightScheme : systemDarkScheme;
     if (systemScheme != null) {
-      if (brightness == Brightness.dark &&
-          appStateSettings["forceFullDarkBackground"] == true) {
-        return systemScheme.copyWith(background: Colors.black);
+      if (brightness == Brightness.dark) {
+        if (appStateSettings["forceFullDarkBackground"] == true) {
+          return systemScheme.copyWith(background: Colors.black);
+        }
+        return systemScheme;
       }
-      return systemScheme;
+      return systemScheme.copyWith(
+        background: appStateSettings["materialYou"] == true
+            ? lightenPastel(systemScheme.primary, amount: 0.86)
+            : Colors.white,
+      );
     }
   }
   if (isGrayScale(
@@ -409,7 +409,7 @@ ColorScheme getColorScheme(Brightness brightness) {
       brightness: Brightness.light,
       background: appStateSettings["materialYou"]
           ? lightenPastel(getSettingConstants(appStateSettings)["accentColor"],
-              amount: 0.91)
+              amount: 0.86)
           : Colors.white,
     );
   } else {
