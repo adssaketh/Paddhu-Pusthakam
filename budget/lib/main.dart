@@ -28,6 +28,7 @@ import 'package:budget/widgets/restartApp.dart';
 import 'package:budget/struct/customDelayedCurve.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:budget/colors.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -177,6 +178,16 @@ class App extends StatelessWidget {
               ),
             ),
           ),
+        );
+
+        // Keep status bar icon colour in sync with the current theme
+        // (dark icons on light theme, light icons on dark theme)
+        mainWidget = AnnotatedRegion<SystemUiOverlayStyle>(
+          value: getSystemUiOverlayStyle(
+            Theme.of(context).extension<AppColors>(),
+            Theme.of(context).brightness,
+          ),
+          child: mainWidget,
         );
 
         if (kIsWeb) {
