@@ -83,7 +83,9 @@ Future<bool> initializeSettings() async {
 
   // Do some actions based on loaded settings
   if (appStateSettings["accentSystemColor"] == true) {
-    appStateSettings["accentColor"] = await getAccentColorSystemString();
+    appStateSettings["accentColor"] =
+        (await getAccentColorSystemString()) ??
+            appStateSettings["accentColor"];
   }
 
   await attemptToMigrateSetLongTermLoansAmountTo0();

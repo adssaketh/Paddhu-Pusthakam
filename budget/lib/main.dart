@@ -29,6 +29,7 @@ import 'package:budget/struct/customDelayedCurve.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/colors.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:device_preview/device_preview.dart';
@@ -108,6 +109,10 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     print("Rebuilt Material App");
+    return DynamicColorBuilder(
+        builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+    systemLightScheme = lightDynamic;
+    systemDarkScheme = darkDynamic;
     return MaterialApp(
       showPerformanceOverlay: kProfileMode,
       localizationsDelegates: context.localizationDelegates,
@@ -183,5 +188,6 @@ class App extends StatelessWidget {
       },
       // ),
     );
+    });
   }
 }

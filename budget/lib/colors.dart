@@ -382,7 +382,21 @@ bool isGrayScale(Color color, {int threshold = 10}) {
       (green - blue).abs() <= threshold;
 }
 
+ColorScheme? systemLightScheme;
+ColorScheme? systemDarkScheme;
+
 ColorScheme getColorScheme(Brightness brightness) {
+  if (appStateSettings["accentSystemColor"] == true) {
+    final ColorScheme? systemScheme =
+        brightness == Brightness.light ? systemLightScheme : systemDarkScheme;
+    if (systemScheme != null) {
+      if (brightness == Brightness.dark &&
+          appStateSettings["forceFullDarkBackground"] == true) {
+        return systemScheme.copyWith(background: Colors.black);
+      }
+      return systemScheme;
+    }
+  }
   if (isGrayScale(
     getSettingConstants(appStateSettings)["accentColor"],
     threshold: 15,
