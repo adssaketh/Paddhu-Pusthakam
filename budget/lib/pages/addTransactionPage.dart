@@ -13,6 +13,7 @@ import 'package:budget/pages/sharedBudgetSettings.dart';
 import 'package:budget/pages/transactionsListPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/pingImport.dart';
+import 'package:budget/struct/pingLogo.dart';
 import 'package:budget/struct/pingOpen.dart';
 import 'package:budget/struct/navBarIconsData.dart';
 import 'package:budget/struct/settings.dart';
@@ -2098,6 +2099,11 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         },
         actions: [
           // A transaction made from a Ping SMS: open that message in Ping (lib/struct/pingOpen.dart)
+          if (widget.transaction != null &&
+              pingSmsRefOfNote(widget.transaction!.note) != null)
+            PingLogoAvatar(
+                sender: pingSmsRefOfNote(widget.transaction!.note)?.address,
+                size: 30),
           if (widget.transaction != null &&
               pingSmsRefOfNote(widget.transaction!.note) != null)
             IconButton(

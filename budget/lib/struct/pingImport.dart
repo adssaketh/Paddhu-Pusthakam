@@ -49,6 +49,7 @@ class PingImportRow {
     required this.tickByDefault,
     this.knownAccount = false,
     this.extraNote = '',
+    this.brandKey = '',
   });
 
   final String smsId;
@@ -84,6 +85,9 @@ class PingImportRow {
 
   /// Extra line for the note (for example the PhonePe details), before the duplicate markers.
   final String extraNote;
+
+  /// Ping's `brandKey` for the sender (logo key, for example `axisbank`), '' when Ping sent none or an invalid one.
+  final String brandKey;
 
   /// Text stored in the transaction's note: the account, then the duplicate marker.
   String get note {
@@ -220,6 +224,7 @@ PingImport parsePingExport(String jsonText) {
       // marked closed (the active Jupiter account may send the same format).
       closed: known?.closed ?? false,
       knownAccount: known != null,
+      brandKey: _brandKeyOf(item['brandKey']),
       tickByDefault: (known?.tickByDefault ?? true) &&
           !(parsed.isExpense && _cardBillDebitRe.hasMatch(body)),
     ));
@@ -233,6 +238,12 @@ PingImport parsePingExport(String jsonText) {
     to: _dateFromMs(decoded['to']),
     cardDues: cardDues,
   );
+}
+
+/// `brandKey` as the contract defines it (lower-case letters and digits), else ''. Only used to ask Ping for a logo.
+String _brandKeyOf(dynamic value) {
+  final String v = (value ?? '').toString();
+  return RegExp(r'^[a-z0-9]{1,40}$').hasMatch(v) ? v : '';
 }
 
 /// The effect of this message on what you owe on a credit card, or null when it is not about a credit card.

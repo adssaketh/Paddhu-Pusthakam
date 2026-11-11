@@ -121,7 +121,7 @@ public class PingInboxProvider extends ContentProvider {
     }
 
     /** true when [caller] is signed (only) with a certificate whose SHA-256 is in [PINNED_CERT_SHA256]. */
-    private static boolean callerHasPinnedCertificate(Context context, String caller) {
+    static boolean callerHasPinnedCertificate(Context context, String caller) {
         try {
             PackageManager pm = context.getPackageManager();
             Signature[] signers;

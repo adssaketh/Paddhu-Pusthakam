@@ -11,6 +11,8 @@
    "address": "AX-AXISBK-S",
    "body": "INR 50.00 debited A/c no. XX1234 07-11-26, 07:52:58 UPI/P2M/000000000001/Test shop Not you? SMS BLOCKUPI Cust ID to 910000000000 Axis Bank",
    "date": 1793000000000,
+   "brand": "Axis Bank",
+   "brandKey": "axisbank",
    "kind": "transaction",
    "category": "transactions"
   },
@@ -19,6 +21,8 @@
    "address": "JD-AXISBK-S",
    "body": "INR 1,200.00 credited to A/c no. XX1234 on 07-11-26 by UPI/000000000002/Test sender. Axis Bank",
    "date": 1793003600000,
+   "brand": "Axis Bank",
+   "brandKey": "axisbank",
    "kind": "transaction",
    "category": "transactions"
   }

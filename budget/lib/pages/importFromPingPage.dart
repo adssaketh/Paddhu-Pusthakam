@@ -11,6 +11,7 @@ import 'package:budget/struct/fixedDepositStore.dart';
 import 'package:budget/struct/phonePeTwins.dart';
 import 'package:budget/struct/cardDuesStore.dart';
 import 'package:budget/struct/pingImport.dart';
+import 'package:budget/struct/pingLogo.dart';
 import 'package:budget/struct/pingInbox.dart';
 import 'package:budget/struct/pingSave.dart';
 import 'package:budget/struct/householdWallets.dart';
@@ -381,6 +382,8 @@ class _ImportFromPingPageState extends State<ImportFromPingPage> {
               value: already ? true : isTicked,
               onChanged: already || saving ? null : (_) => toggle(),
             ),
+            // the sender's logo from Ping (nothing at all when Ping has none)
+            PingLogoAvatar(brandKey: row.brandKey, sender: row.sender, size: 36),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

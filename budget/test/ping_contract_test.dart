@@ -162,6 +162,22 @@ void main() {
   }
   expectEq('wrong type is refused', true, refused);
 
+  // 6. [6c] the logo key: Ping's brandKey is kept when it has the contract's shape, ignored otherwise
+  final String rangeText = File('$dir/samples/date-range.json').readAsStringSync();
+  final PingImport withBrand = parsePingExport(rangeText);
+  expectEq('date-range rows carry the brand key', true,
+      withBrand.rows.isNotEmpty && withBrand.rows.every((r) => r.brandKey == 'axisbank'));
+  final PingImport legacy = parsePingExport(File('$dir/samples/legacy-minimal.json').readAsStringSync());
+  expectEq('an old Ping sends no brand key', true, legacy.rows.every((r) => r.brandKey == ''));
+  for (final String bad in ['../etc', 'Axis Bank', 'AXISBANK', '', 'a' * 41]) {
+    final Map<String, dynamic> doc = jsonDecode(rangeText) as Map<String, dynamic>;
+    for (final dynamic item in doc['sms'] as List) {
+      (item as Map<String, dynamic>)['brandKey'] = bad;
+    }
+    final PingImport got = parsePingExport(jsonEncode(doc));
+    expectEq('brand key "$bad" is ignored', true, got.rows.every((r) => r.brandKey == ''));
+  }
+
   if (failures == 0) {
     print('PASS  contract ($checks checks)');
   } else {
